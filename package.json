@@ -1,0 +1,15 @@
+{
+  "name": "iss-tracker-map",
+  "version": "1.2.0",
+  "private": true,
+  "description": "TRMNL recipe: the International Space Station's live position on a world map.",
+  "type": "module",
+  "scripts": {
+    "lint": "node tools/lint-scope.mjs src",
+    "lint:json": "node tools/lint-scope.mjs --json src",
+    "preview": "node tools/preview.mjs",
+    "audit:vars": "node tools/audit-framework-vars.mjs",
+    "test": "node tools/selftest.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

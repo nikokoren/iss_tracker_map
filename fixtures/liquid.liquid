@@ -1,0 +1,19 @@
+{%- comment -%}
+  Prose that mentions a <style> block and a .layout selector must not be
+  parsed. Neither must this </style> tag.
+{%- endcomment -%}
+
+<style>
+  /* A comment naming :root and .layout must not be read as a selector. */
+  .iss { --iss-x: 0; }
+  {% if show_events %}
+  .iss .iss-event { display: block; }
+  {% else %}
+  .iss .iss-event { display: none; }
+  {% endif %}
+  .iss .iss-map__station { left: 50%; }
+</style>
+
+<div class="view view--quadrant iss">
+  <div class="layout">{{ iss_location }}</div>
+</div>

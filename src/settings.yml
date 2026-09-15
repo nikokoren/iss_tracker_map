@@ -1,0 +1,37 @@
+# Mirrors the plugin's configuration in the TRMNL editor so the settings live
+# in version control next to the markup they drive. TRMNL is still the source
+# of truth; this file is kept in step by hand.
+---
+name: ISS Tracker Map
+description: >-
+  Your TRMNL now tracks the International Space Station in (almost) real-time,
+  plotting its precise location on a beautiful world map.
+version: 1.2.0
+
+strategy: polling
+refresh_interval: 15   # minutes
+
+custom_fields:
+  - keyname: unit_system
+    name: Units
+    field_type: select
+    options: [metric, imperial]
+    default: metric
+
+  - keyname: show_timestamp
+    name: Show timestamp
+    field_type: select
+    options: ["yes", "no"]
+    default: "yes"
+
+  - keyname: rotate_icon
+    name: Rotate icon with heading
+    field_type: select
+    options: ["yes", "no"]
+    default: "yes"
+
+  - keyname: show_events
+    name: Show dockings and spacewalks
+    field_type: select
+    options: ["yes", "no"]
+    default: "yes"

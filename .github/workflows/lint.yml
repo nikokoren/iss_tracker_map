@@ -1,0 +1,18 @@
+name: Scope check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Fails the build on any rule that can restyle a neighbouring plugin in
+      # a mashup. This is the regression guard for the alignment bug.
+      - run: node tools/selftest.mjs
+      - run: node tools/lint-scope.mjs src

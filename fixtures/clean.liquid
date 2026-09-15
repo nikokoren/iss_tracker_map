@@ -1,0 +1,21 @@
+<style>
+  .iss {
+    --iss-gap: 18px;
+    --iss-dot: 10px;
+  }
+  .iss .layout { gap: var(--iss-gap); }
+  .iss .title_bar .title { letter-spacing: .02em; }
+  .iss img { image-rendering: pixelated; }
+  .iss .map-frame, .iss .fact { border: 1px solid; }
+  .iss > .layout--row { gap: 4px; }
+  @media (min-width: 600px) {
+    .iss .columns { display: block; }
+  }
+  @keyframes iss-blink { 0% { opacity: 1 } }
+  .iss .badge { font-weight: 700; }
+  .iss:has(> .fact) .map-frame { outline: 0; }
+  .iss .fact:not(.layout) { margin: 0; }
+</style>
+<div class="view view--quadrant iss">
+  <div class="layout"><span class="fact">ALT 408 km</span></div>
+</div>

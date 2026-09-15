@@ -1,0 +1,30 @@
+<style>
+  :root {
+    --gap: 18px;
+    --iss-dot: 10px;
+  }
+  .layout {
+    gap: var(--gap);
+    padding: 6px;
+  }
+  .title_bar .title { letter-spacing: .02em; }
+  img { image-rendering: pixelated; }
+  #iss-map { position: relative; }
+  .map-frame, .iss .fact { border: 1px solid; }
+  .iss ~ .layout { color: red; }
+  .iss .layout--row { gap: 4px; }
+  @media (min-width: 600px) {
+    .columns { display: block !important; }
+  }
+  @keyframes blink { 0% { opacity: 1 } }
+  .badge { font-weight: 700 !important; }
+</style>
+<div class="view view--quadrant">
+  <div class="layout" id="iss-map">
+    <span class="fact">ALT 408 km</span>
+  </div>
+</div>
+<script>
+  const el = document.getElementById("iss-map");
+  document.querySelectorAll(".fact").forEach(n => n.dataset.ok = 1);
+</script>
