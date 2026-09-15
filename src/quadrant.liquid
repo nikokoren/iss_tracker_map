@@ -1,0 +1,222 @@
+{%- comment -%}
+  quadrant.liquid — ISS Tracker Map (compact view)
+
+  This is the view a 2x2 / 4-up mashup renders, so it is the one that reached
+  into a neighbouring plugin.
+
+  SCOPING CONTRACT
+  ----------------
+  A mashup renders every plugin into one document. There is no iframe and no
+  shadow root, so this style block is a document-wide stylesheet and this
+  script can see every other plugin's DOM.
+
+  Note that the framework ships entirely inside @layer (tn--normalize,
+  tn--elements, tn--components, tn--base, tn--device-overrides, tn--utilities)
+  while a plugin's <style> block is unlayered. Unlayered CSS beats layered CSS
+  regardless of specificity, so a bare `*` here outranks even the framework's
+  own multi-class rules. Scope is the only thing holding these styles in.
+
+  Identical in content to half_vertical.liquid. Change both together.
+{%- endcomment -%}
+
+<style>
+  /* --- CSS: COMPACT LAYOUT --- */
+  .iss{
+    --iss-border:#000;
+    position:relative; height:100%; width:100%; overflow:hidden;
+  }
+
+  /* The reset was `*`, which set margin:0 and padding:0 on every element in
+     the mashup. Because plugin styles are unlayered it outranked the
+     framework's own .view--quadrant .layout rule, so a neighbouring plugin
+     lost its 10px padding and its title bar's 0 10px, jamming content against
+     the edges. Confined here it only resets this plugin's own elements. */
+  .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; box-sizing:border-box;}
+
+  /* Map. Renamed from .map, which is a framework class — and which never
+     applied here anyway, because the map div carried only an id. */
+  .iss .iss-map{height:100%; width:100%}
+  .iss .iss-map.leaflet-container{ height:100%; width:100%; position:relative; overflow:hidden; background:#ddd; outline:0; }
+  .iss .leaflet-pane{position:absolute; left:0; top:0;}
+  .iss .leaflet-tile{ position:absolute; left:0; top:0; width:256px; height:256px; }
+  .iss .leaflet-zoom-animated{transform-origin:0 0;}
+  .iss .leaflet-zoom-hide{visibility:hidden;}
+  .iss .leaflet-control-attribution{display:none}
+
+  /* Centered Icon */
+  .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900;}
+  .iss .iss-craft img{width:48px; height:48px; filter:brightness(0)}
+
+  /* The "Mini Pill" at bottom */
+  .iss .iss-mini-pill {
+    position:absolute; left:8px; right:8px; bottom:8px; z-index:1000;
+    background:#fff; border:1.5px solid var(--iss-border); border-radius:12px;
+    padding:8px 10px;
+    display:flex; align-items:center; justify-content:center;
+    min-height: 40px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  /* Text Styling */
+  .iss .iss-text {
+    font-weight:800; font-size:18px; line-height:1.1;
+    text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    width: 100%; color: #000;
+  }
+
+  /* --- EVENT MODE: INVERTED --- */
+  .iss .iss-mini-pill--event {
+    background: #000; border-color: #000;
+    align-items: center; justify-content: flex-start;
+  }
+
+  /* Wrap text when event is active */
+  .iss .iss-mini-pill--event .iss-text {
+    color: #fff;
+    white-space: normal; /* Allow wrapping */
+    text-align: left;
+    font-size: 13px; /* Smaller for detailed text */
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
+</style>
+
+<div class="layout iss">
+  <div class="iss-map"></div>
+  <div class="iss-craft"><img class="iss-icon" alt="ISS" src="" /></div>
+
+  <div class="iss-mini-pill">
+    <div class="iss-text">Loading...</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+  // --- 0. THIS INSTANCE'S ROOT ---
+  // Every lookup goes through ROOT. document.getElementById would find the
+  // first #map in the mashup, which is another plugin's or this plugin's other
+  // instance, never reliably this one.
+  const SELF = document.currentScript;
+  const ROOT =
+    (SELF && SELF.closest('.iss')) ||
+    (SELF && SELF.parentElement && SELF.parentElement.querySelector('.iss')) ||
+    document.querySelector('.iss');
+  if (!ROOT) return;
+  const $ = (sel) => ROOT.querySelector(sel);
+
+  // --- 1. CONSTANTS & CONFIG ---
+  const CONFIG = {
+    enableRotation: "{{ trmnl.plugin_settings.custom_fields_values.random_rotation | default: 'true' }}" !== 'false',
+    urls: {
+      iss: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss.png",
+      eva: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss_eva.png"
+    }
+  };
+
+  // --- 2. INPUT DATA (Raw) ---
+  const firstNonEmpty = (...xs) => { for (const x of xs){ const s=String(x??'').trim(); if(s) return s; } return ''; };
+  const RAW_DATA = {
+    lat: firstNonEmpty('{{ lat }}', '{{ IDX_0.lat }}'),
+    lon: firstNonEmpty('{{ lon }}', '{{ IDX_0.lon }}'),
+    place: firstNonEmpty('{{ place }}', '{{ IDX_0.place }}'),
+    short_info: '{% if trmnl.plugin_settings.custom_fields_values.show_iss_events == "true" %}{{ special_event.short_info | default: "" }}{% endif %}',
+    event_type: '{{ special_event.type | default: "" }}'
+  };
+
+  // --- 3. THE BRAIN (Shared Logic) ---
+  function computeState(raw, cfg) {
+    const lat = Number(raw.lat);
+    const lon = Number(raw.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const info = raw.short_info.trim();
+    const hasActiveEvent = info.length > 0;
+    const isEVA = raw.event_type.trim() === "EVA" && hasActiveEvent;
+
+    return {
+      isValid: true,
+      map: { lat, lon },
+      icon: {
+        url: isEVA ? cfg.urls.eva : cfg.urls.iss,
+        rotation: cfg.enableRotation ? Math.floor(Math.random() * 360) : 0
+      },
+      pill: {
+        mode: hasActiveEvent ? 'EVENT' : 'LOCATION',
+        text: hasActiveEvent ? info : ((raw.place || '').trim() || `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`)
+      }
+    };
+  }
+
+  // --- 4. THE VIEW (Compact Specific) ---
+  function updateView(state) {
+    const el = {
+      pill: $('.iss-mini-pill'),
+      text: $('.iss-text'),
+      icon: $('.iss-icon')
+    };
+
+    if (!state || !state.isValid) {
+      el.text.textContent = "—";
+      return;
+    }
+
+    // A. Map Update
+    const center = map.project([state.map.lat, state.map.lon], 2);
+    map.setView(map.unproject([center.x, center.y], 2), 2, {animate: false});
+
+    // B. Icon Update
+    if (el.icon.src !== state.icon.url) el.icon.src = state.icon.url;
+    el.icon.parentElement.style.transform = state.icon.rotation
+      ? `translate(-50%, -50%) rotate(${state.icon.rotation}deg)`
+      : `translate(-50%, -50%)`;
+
+    // C. Pill Logic (The big difference from Full Screen)
+    el.text.textContent = state.pill.text;
+
+    if (state.pill.mode === 'EVENT') {
+      el.pill.classList.add('iss-mini-pill--event');
+      fitTextToContainer(el.text, el.pill, 10, 16, true);
+    } else {
+      el.pill.classList.remove('iss-mini-pill--event');
+      fitTextToContainer(el.text, el.pill, 12, 18, false);
+    }
+  }
+
+  // --- 5. HELPERS ---
+  function fitTextToContainer(node, wrap, minPx, maxPx, allowWrap){
+    if(!node || !wrap) return;
+    node.style.fontSize = maxPx + 'px';
+    let lo=minPx, hi=maxPx, best=minPx;
+    while (lo <= hi){
+      const mid = (lo+hi)>>1;
+      node.style.fontSize = mid + 'px';
+      let fits = false;
+      if (allowWrap) {
+         fits = node.scrollHeight <= (wrap.clientHeight + 4);
+      } else {
+         fits = node.scrollWidth <= (wrap.clientWidth - 4);
+      }
+      if (fits){ best = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    node.style.fontSize = best + 'px';
+  }
+
+  // --- 6. BOOT ---
+  // Leaflet is handed the element, not an id string.
+  const map = L.map($('.iss-map'), {
+    attributionControl:false, zoomControl:false, scrollWheelZoom:false,
+    doubleClickZoom:false, boxZoom:false, keyboard:false, dragging:false,
+    worldCopyJump:true, fadeAnimation:false, zoomAnimation:false, updateWhenIdle:true
+  }).setView([0,0], 2);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2782_1_716df946c45899d9c31c5bb4', {
+    subdomains:'abcd', maxZoom:10, minZoom:2, detectRetina:false, keepBuffer:0,
+    reuseTiles:true, updateWhenIdle:true, className:'image-dither'
+  }).addTo(map);
+
+  setTimeout(() => map.invalidateSize(false), 60);
+
+  updateView(computeState(RAW_DATA, CONFIG));
+})();
+</script>

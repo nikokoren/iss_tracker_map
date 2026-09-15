@@ -78,10 +78,15 @@ Node 18 or newer. No dependencies.
 
 ## Views
 
-Only `full.liquid` is in this repository so far — it is the markup that was
-published. If the plugin defines separate `quadrant`, `half_horizontal` or
-`half_vertical` templates in the editor, they need the same scoping treatment
-and should be added here; `npm run lint` covers every file under `src/`.
+All four view templates are here. They come in two shapes, and the files within
+each pair are identical — change both together:
 
-Note that a mashup does not render `full.liquid`, so if the other views carry
-their own `<style>` blocks they are the ones a customer actually saw.
+| file | shape | rendered in a mashup? |
+| --- | --- | --- |
+| `full.liquid` | map + KPI pill | no |
+| `half_horizontal.liquid` | map + KPI pill | yes |
+| `quadrant.liquid` | map + mini pill | yes |
+| `half_vertical.liquid` | map + mini pill | yes |
+
+`shared.liquid` is unused. Moving the common CSS there would remove the
+duplication, at the cost of a structural change to verify in the editor first.

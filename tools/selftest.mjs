@@ -47,5 +47,15 @@ check("ignores markup discussed inside {% comment %}", liquidFindings.length ===
   liquidFindings.map((f) => `${f.code} @ line ${f.line}`).join(", "));
 check("liquid fixture exits zero", liquid.code === 0, `exit was ${liquid.code}`);
 
+// The real defect this repo was opened for, kept verbatim so the linter is
+// held against the thing it was written to catch rather than only synthetic
+// input.
+const real = run(["tools/lint-scope.mjs", "--ns=.iss", "--json", "fixtures/regression-unscoped-quadrant.liquid"]);
+const realCodes = new Set(JSON.parse(real.out).findings.filter((f) => f.level === "error").map((f) => f.code));
+for (const code of ["document-selector", "framework-override", "bare-element"]) {
+  check(`flags ${code} in the shipped-and-reverted quadrant`, realCodes.has(code));
+}
+check("real regression fixture exits non-zero", real.code === 1, `exit was ${real.code}`);
+
 console.log(`\n${failures ? failures + " failing" : "all passing"}\n`);
 process.exit(failures ? 1 : 0);

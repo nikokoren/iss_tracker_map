@@ -3,32 +3,62 @@
 Notes from investigating a report that the ISS Tracker Map, placed in a 4x4
 mashup, changed the layout of an unrelated weather plugin.
 
-## The cause
+## Why scope is the only defence
 
 A mashup renders every plugin into **one HTML document**. There is no iframe
-and no shadow root, so a plugin's `<style>` block is a document-wide
-stylesheet and its `<script>` can see every other plugin's DOM.
+and no shadow root, so a plugin's `<style>` block is a document-wide stylesheet
+and its `<script>` can see every other plugin's DOM.
 
-This plugin had sixteen rules that could reach outside itself. The one that
-produced the reported symptom:
+Specificity does not save you either. The framework ships entirely inside CSS
+layers:
 
 ```css
-*{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+@layer tn--normalize, tn--elements, tn--components, tn--base, tn--device-overrides, tn--themes, tn--utilities;
 ```
 
-`*` matches every element in the document, so this replaced TRMNL's pixel
-fonts (TRMNL16 and friends) with a proportional system font for **every plugin
-on screen**. system-ui is wider at the same nominal size, so a neighbour's text
-that was tuned to fit its column no longer fit. Where that neighbour's CSS
-allowed wrapping, it wrapped; where it did not, it overflowed or clipped.
+All but ~21KB of the 18.6MB stylesheet sits inside those layers. **Unlayered
+CSS beats layered CSS regardless of specificity**, and a plugin's `<style>`
+block is unlayered. So a bare `*` in a plugin outranks the framework's own
+multi-class rules. Measured:
+
+| Plugin rule (unlayered) | Framework rule (layered) | Winner |
+| --- | --- | --- |
+| `*{padding:0}` | `.view--quadrant .layout{padding:var(--gap)}` | **the plugin** — neighbour's padding 10px → 0 |
+| `.layout{padding:16px}` | `.view--quadrant .layout{padding:var(--gap)}` | **the plugin** — neighbour's padding 10px → 16px |
+| `*{font-family:system-ui}` | `.value{font-family:var(--value-font-family)}` | **the plugin** — neighbour's font → system-ui |
+
+This is why "my selector is less specific than theirs, so it is fine" is not a
+safe assumption anywhere in a TRMNL plugin.
+
+## The cause
+
+`quadrant.liquid` is the view a 2x2 / 4-up mashup renders, so it is the file
+the customer actually saw. Its first two rules were:
+
+```css
+:root{ --border:#000; }
+*{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; box-sizing:border-box;}
+```
+
+That `*` did two separate kinds of damage to every plugin on screen.
+
+**The font swap** replaced TRMNL's pixel fonts with a proportional system font.
+system-ui is wider at the same nominal size, so a neighbour's text that was
+tuned to fit its column no longer fit.
+
+**The reset** set `margin:0; padding:0` on every element in the document,
+stripping the framework's own spacing from the other plugins.
 
 Measured against the real framework CSS, in a stock weather quadrant with a
 six-hour strip:
 
-| | font of `.value` | height | result |
-| --- | --- | --- | --- |
-| control | TRMNL16 | 16px | `16.6 °C` on one line |
-| with `*{font-family:system-ui,…}` | system-ui | 32px | **wraps to two lines** |
+| | `.layout` padding | title bar padding | font | column | `16.6 °C` |
+| --- | --- | --- | --- | --- | --- |
+| control | 10px | `0px 10px` | TRMNL16 | 52.5px | one line |
+| `*{font-family:…}` alone | 10px | `0px 10px` | system-ui | 52.5px | **wraps** |
+| `*{margin:0;padding:0}` alone | **0px** | **0px** | TRMNL16 | 55.8px | one line |
+| the real quadrant block | **0px** | **0px** | **system-ui** | 55.8px | **wraps** |
+| after the fix | 10px | `0px 10px` | TRMNL16 | 52.5px | one line |
 
 ![control](img/mashup-clean.png)
 
@@ -36,26 +66,25 @@ six-hour strip:
 
 The weather plugin's own code never changed.
 
-### The other fifteen
+`:root{--border:#000}` turned out to be harmless: the framework uses
+`--border-token-*` and `--border-*` but never bare `--border`. It is scoped now
+regardless, because relying on nobody else picking the same name is not a
+strategy.
 
-Four framework classes were redefined for the whole screen. Every plugin in a
-mashup has these elements, so all of them picked up this plugin's styling:
+### The full and half_horizontal views
 
-```css
-.layout{position:relative; height:100%}
-.value{ font-size:…; display:flex; gap:2px; white-space:nowrap; … }
-.label{ font-size:…; white-space:nowrap; color:#222; }
-.pill .label{ font-size:var(--kpi-label); }
-```
+Those two files are identical to each other and carry a larger style block with
+sixteen escaping rules. Four were framework classes redefined for the whole
+screen — `.layout`, `.value`, `.label` and `.pill .label` — which every plugin
+in a mashup has. `.craft img` restyled every image on screen, `.pill--inverted`
+fired `!important` from an unscoped selector, and `.screen--half-h` invented a
+member of the framework's screen-modifier namespace.
 
-`.row` and `.map` are framework class names too, and were in use here for this
-plugin's own elements — so the framework's rules for them were landing on this
-plugin's markup as well, in the other direction.
-
-`:root` carried six custom properties, `.craft img` restyled every `<img>` on
-screen, `.pill--inverted` used `!important` from an unscoped selector, and
-`.screen--half-h` invented a new member of the framework's screen-modifier
-namespace.
+`.row` and `.map` are framework class names that were in use for this plugin's
+own elements, so the framework's rules for them were landing here too, in the
+other direction. In the compact views `.map` was worse than useless: the map
+div carried only an id, so the rule never matched this plugin at all and
+existed purely to style other plugins' `.map` elements.
 
 ### The script was worse than the CSS
 
@@ -66,26 +95,26 @@ root.classList.toggle('mode--location-only', isSmall);
 
 `document.querySelector` returns the first match **in the whole mashup**.
 Verified in a two-plugin mashup with the weather plugin first: `root` resolved
-to the *weather* plugin's layout, and the script wrote a class onto it. The ISS
+to the *weather* plugin's layout and the script wrote a class onto it. The ISS
 plugin's own layout never got the class, so its responsive mode silently did
 nothing. `fitTextToContainer` measured the neighbour's `.locwrap` for the same
 reason.
 
-Twelve `getElementById` lookups and `L.map('map')` had a related problem: ids
-must be unique per document, so two instances of this plugin in one mashup
-would both bind to the first one's elements.
+The `getElementById` lookups and `L.map('map')` had a related problem: ids must
+be unique per document, so two instances of this plugin in one mashup would
+both bind to the first one's elements.
 
 ## The fix
 
-Every selector is now a descendant of `.iss`, every class this plugin owns is
+Every selector is a descendant of `.iss`, every class this plugin owns is
 prefixed `iss-`, and every DOM lookup goes through a root resolved from
 `document.currentScript` rather than through `document`.
 
-Verified: with the fixed style block, a stock weather quadrant renders
-byte-identically to the control across four different markup shapes
-(`.value`, a bare `<span>`, `.label`, and `.value` with a child `.unit`), and
-the script's class toggle lands on the ISS layout with the weather layout
-untouched.
+Verified: with the fixed quadrant block, a stock weather quadrant renders
+identically to the control on padding, title bar, font, column width and line
+count; across four markup shapes (`.value`, a bare `<span>`, `.label`, and
+`.value` with a child `.unit`); and the class toggle lands on the ISS layout
+with the neighbour untouched.
 
 ## What we checked and ruled out
 
@@ -95,25 +124,20 @@ and it is wrong.
 
 The framework redefines most of its variables on `.trmnl .screen` and on the
 per-device `.screen--<device>` class. Those are nearer ancestors than `<html>`,
-so they win by proximity and a plugin's `:root` override is silently discarded.
-Measured:
+so they win by proximity and a plugin's `:root` override is silently discarded:
 
 | Declaration in a plugin's `<style>` | Reaches other plugins? |
 | --- | --- |
 | `:root { --gap: 16px }` | No — shadowed by `.trmnl .screen` |
 | `:root { --gap-scale: 1.6 }` | No — shadowed per device |
 | `:root { --content-scale: 1.6 }` | No — shadowed by `.trmnl .screen` |
-| `* { box-sizing: content-box }` | No observable effect |
-| `.layout { gap; padding }` | Barely — `.view--quadrant .layout` is more specific |
+| `:root { --border: #000 }` | No — the framework never reads bare `--border` |
 | `:root { --framework-layout-whitespace-factor: 1.6 }` | **Yes** |
 | `:root { --modifier-scale: 1.6 }` | **Yes** |
 | `.screen { --gap: 16px }` | **Yes** |
-| `.columns { gap: 14px }` | **Yes** |
 
-So the six `:root` properties this plugin set were harmless: they are
-plugin-specific names (`--kpi-value`, `--pill-radius`) that nothing else reads.
-They are scoped now anyway, because relying on nobody else picking the same
-name is not a strategy.
+Variable inheritance is the one place proximity still protects you. It does not
+extend to ordinary declarations, which is what the layer table above is about.
 
 `npm run audit:vars` regenerates this against the current framework. The
 variables that do leak are the ones with nothing nearer to shadow them: the six
@@ -133,7 +157,7 @@ or on an ancestor of it reachable through descendant/child combinators only.
 .iss.layout           /* OK   subject is itself .iss */
 .layout               /* LEAK matches every plugin's layout */
 :root                 /* LEAK matches <html> */
-*                     /* LEAK matches everything */
+*                     /* LEAK matches everything, and outranks the framework */
 .iss ~ .layout        /* LEAK a sibling of .iss is outside .iss */
 .a:not(.iss) .layout  /* LEAK the namespace only appears inside :not() */
 ```
@@ -141,7 +165,8 @@ or on an ancestor of it reachable through descendant/child combinators only.
 ### Checklist
 
 - Custom properties go on `.iss`, never `:root`, `html`, `body` or `.screen`.
-- Never write `*`, and never a bare type selector (`img`, `p`, `svg`).
+- Never write `*`, and never a bare type selector (`img`, `p`, `svg`). A reset
+  belongs on `.iss, .iss *`.
 - Never write a bare framework class: `.layout`, `.columns`, `.item`,
   `.value`, `.label`, `.row`, `.map`, `.title_bar`, `.view`, `.screen`.
   Do not use those names for your own elements either — the framework styles
@@ -149,5 +174,6 @@ or on an ancestor of it reachable through descendant/child combinators only.
 - Prefix `@keyframes` and `@font-face` names; those are global.
 - Use classes, not ids, and resolve your root from `document.currentScript`
   before querying.
+- Do not reason from specificity. The framework is layered and you are not.
 
-`npm run lint` enforces all of the above and exits non-zero on a violation.
+`npm run lint` enforces the selector rules and exits non-zero on a violation.
