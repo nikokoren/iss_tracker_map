@@ -97,6 +97,41 @@ function neutralizeLiquid(source) {
   return out;
 }
 
+// JS comments must not be scanned: a comment explaining why
+// document.querySelector is wrong would otherwise be reported as a use of it.
+// Strings are tracked so that "https://..." is never mistaken for a comment.
+// Length and newlines are preserved so line numbers stay correct.
+function blankJsComments(js) {
+  let out = "";
+  let i = 0;
+  while (i < js.length) {
+    const c = js[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const end = skipString(js, i);
+      out += js.slice(i, end + 1);
+      i = end + 1;
+      continue;
+    }
+    if (c === "/" && js[i + 1] === "/") {
+      const nl = js.indexOf("\n", i);
+      const stop = nl === -1 ? js.length : nl;
+      out += " ".repeat(stop - i);
+      i = stop;
+      continue;
+    }
+    if (c === "/" && js[i + 1] === "*") {
+      const end = js.indexOf("*/", i + 2);
+      const stop = end === -1 ? js.length : end + 2;
+      out += js.slice(i, stop).replace(/[^\n]/g, " ");
+      i = stop;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
 function stripCssComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, " ");
 }
@@ -489,7 +524,7 @@ function lintMarkup(file, rawSource, namespaces) {
   // Unscoped DOM queries
   const scriptRe = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
   while ((m = scriptRe.exec(source)) !== null) {
-    const js = m[1];
+    const js = blankJsComments(m[1]);
     const jsOffset = m.index + m[0].indexOf(js);
     const queryRe = /document\s*\.\s*(getElementById|querySelector|querySelectorAll|getElementsByClassName)\s*\(/g;
     let q;

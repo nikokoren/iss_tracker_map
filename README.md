@@ -75,3 +75,13 @@ leaking into its neighbour.
 ## Requirements
 
 Node 18 or newer. No dependencies.
+
+## Views
+
+Only `full.liquid` is in this repository so far — it is the markup that was
+published. If the plugin defines separate `quadrant`, `half_horizontal` or
+`half_vertical` templates in the editor, they need the same scoping treatment
+and should be added here; `npm run lint` covers every file under `src/`.
+
+Note that a mashup does not render `full.liquid`, so if the other views carry
+their own `<style>` blocks they are the ones a customer actually saw.

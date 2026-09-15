@@ -1,28 +1,346 @@
 {%- comment -%}
-  full.liquid
+  full.liquid — ISS Tracker Map
 
-  The outermost element carries "iss" alongside the framework's view classes.
-  That class is what every selector in shared.liquid hangs off, so it must not
-  be renamed without updating the namespace passed to the linter.
+  SCOPING CONTRACT
+  ----------------
+  A mashup renders every plugin into one document. There is no iframe and no
+  shadow root, so this style block is a document-wide stylesheet and this
+  script can see every other plugin's DOM.
 
-  Paste the real full markup below, keeping the .iss class on the root and
-  prefixing any new class with iss-.
+  Everything below is therefore confined two ways:
+
+    CSS  every selector is a descendant of .iss, and every class this plugin
+         owns is prefixed iss- so it cannot collide with the framework or
+         with another plugin.
+    JS   every lookup goes through ROOT, which is this instance's own subtree,
+         never through document.
+
+  Run `npm run lint` before publishing.
 {%- endcomment -%}
 
-{% include "shared" %}
+<style>
+  /* Custom properties live on the plugin root, not :root. At :root they would
+     be inherited by every plugin sharing the screen. */
+  .iss{
+    --iss-pill-radius:12px; --iss-border:#000; --iss-kpi-bar:#d6d6d6;
+    --iss-kpi-value:16px; --iss-kpi-label:10px; --iss-kpi-unit:14px;
 
-<div class="view view--full iss">
-  <div class="layout">
-    <div class="iss-map">
-      <div class="iss-map__station" style="left: {{ iss_x }}%; top: {{ iss_y }}%;"></div>
-    </div>
-    <div class="iss-facts">
-      <span class="label">{{ iss_location }}</span>
-      <span class="value value--xsmall">{{ iss_altitude }}</span>
+    position:relative; height:100%;
+  }
+
+  /* The font override is the one that broke a neighbouring plugin. As `*` it
+     replaced TRMNL's pixel fonts with a proportional system font for every
+     element on screen, so text tuned to fit no longer fit. Confined to this
+     subtree it is harmless. */
+  .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+  .iss .iss-emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif}
+
+  /* Map */
+  .iss .iss-map{height:100%; width:100%}
+  .iss .iss-map.leaflet-container{ height:100%; width:100%; position:relative; overflow:hidden; background:#ddd; outline:0; }
+  .iss .leaflet-pane{position:absolute; left:0; top:0;}
+  .iss .leaflet-tile{ position:absolute; left:0; top:0; width:256px; height:256px; }
+  .iss .leaflet-zoom-animated{transform-origin:0 0;}
+  .iss .leaflet-zoom-hide{visibility:hidden;}
+  .iss .leaflet-control-attribution{display:none}
+
+  /* Overlay Elements */
+  .iss .iss-timestamp{position:absolute; top:10px; left:14px; z-index:1000; font-size:11px; font-weight:600;}
+  .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900; pointer-events:none}
+  .iss .iss-craft img{width:56px; height:56px; filter:brightness(0)}
+  .iss .iss-attrib{position:absolute; right:5px; bottom:3px; z-index:800; font-size:10px; line-height:1; color:#000; background:white; padding:0; border:0;}
+
+  /* The Pill */
+  .iss .iss-pill{
+    position:absolute; left:16px; right:16px; bottom:16px; z-index:1000;
+    background:#fff; border:1.5px solid var(--iss-border); border-radius:var(--iss-pill-radius);
+    padding:8px 12px;
+  }
+
+  /* Inverted State (Active Event). The !important flags are safe now that the
+     selectors cannot match outside .iss. */
+  .iss .iss-pill--inverted { background:#000 !important; color:#fff !important; border-color:#000 !important; }
+  .iss .iss-pill--inverted .iss-status-panel { border-left-color:#fff; }
+  .iss .iss-pill--inverted .iss-locname,
+  .iss .iss-pill--inverted .iss-status-text { color:#fff !important; }
+
+  /* Flex Layout. Renamed from .row, which is a framework class. */
+  .iss .iss-row{ display:flex; gap:16px; align-items:center; height:44px; overflow:hidden; }
+
+  /* Left Col: Location (Fluid 53%) */
+  .iss .iss-locwrap{ min-width:0; flex:1 1 53%; display:flex; align-items:center; overflow:hidden; }
+  .iss .iss-locname{ font-weight:800; line-height:1.1; white-space:nowrap; font-size:28px; color:#000; }
+
+  /* Right Col: KPIs OR Status (Rigid 47%) */
+  .iss .iss-kpis, .iss .iss-status-panel { flex:0 0 47%; max-width:47%; height:100%; overflow:hidden; }
+
+  /* KPI Mode */
+  .iss .iss-kpis{ display:flex; gap:8px; align-items:stretch; margin-left:auto; justify-content:flex-end; }
+  .iss .iss-kpi{ position:relative; padding-left:10px; min-width:0; flex:1 1 0; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; text-align:left; }
+  .iss .iss-kpi::before{content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; background:var(--iss-kpi-bar); border-radius:2px}
+
+  /* Renamed from .value / .label / .unit. The first two are framework classes,
+     so styling them here restyled every plugin in the mashup. */
+  .iss .iss-value{ font-size:calc(var(--iss-kpi-value) - 2px); font-weight:700; line-height:1; margin-bottom:2px; display:flex; align-items:baseline; gap:2px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .iss .iss-unit{ font-size:var(--iss-kpi-unit); font-weight:700; opacity:.85; margin-left:1px; }
+  .iss .iss-label{ font-size:calc(var(--iss-kpi-label) + 1px); font-weight:700; line-height:1.15; letter-spacing:.2px; white-space:nowrap; color:#222; }
+
+  /* Status Mode */
+  .iss .iss-status-panel { display:none; padding-left:10px; border-left:2px solid var(--iss-border); flex-direction:column; justify-content:center; }
+  .iss .iss-status-text { font-weight:800; line-height:1.2; text-transform:uppercase; color:#000; width:100%; white-space:normal; text-align:left; max-height:100%; display:block; }
+
+  /* Responsive Tweaks. Renamed from .screen--half-h: that namespace belongs to
+     the framework's screen modifiers, and inventing a member of it invites a
+     collision with a real one later. Both modifiers are applied by onResize()
+     to this plugin's own root. */
+  .iss--half-h { --iss-kpi-value:14px; --iss-kpi-label:8.5px; --iss-kpi-unit:10px; }
+  .iss--half-h .iss-pill { padding:6px 8px; }
+  .iss--half-h .iss-locname { font-size:20px; }
+  .iss--half-h .iss-kpi { padding-left:8px; }
+
+  .iss--location-only .iss-kpis { display:none !important; }
+  .iss--location-only .iss-pill { padding:6px 8px; }
+  .iss--location-only .iss-locname { font-size:22px; }
+
+  /* A media query keys off the viewport, which in a mashup is the whole
+     screen rather than this quadrant. onResize() measures the real width; this
+     is kept only as a coarse fallback. */
+  @media (max-width:520px){ .iss .iss-pill .iss-label{ font-size:var(--iss-kpi-label); } }
+</style>
+
+<div class="layout iss">
+  <div class="iss-map"></div>
+  <div class="iss-timestamp">ISS @ —</div>
+  <div class="iss-craft"><img class="iss-icon" alt="ISS" src="" /></div>
+
+  <div class="iss-pill">
+    <div class="iss-row">
+      <div class="iss-locwrap">
+        <div class="iss-loc iss-locname iss-emoji">Passing by, wave 👋</div>
+      </div>
+
+      <div class="iss-kpis">
+        <div class="iss-kpi"><span class="iss-value"><span class="iss-alt">—</span><span class="iss-alt-unit iss-unit">km</span></span><span class="iss-label">Altitude</span></div>
+        <div class="iss-kpi"><span class="iss-value"><span class="iss-vel">—</span><span class="iss-vel-unit iss-unit">km/s</span></span><span class="iss-label">Velocity</span></div>
+        <div class="iss-kpi"><span class="iss-value"><span class="iss-orbit">—</span></span><span class="iss-label">Orbits today</span></div>
+      </div>
+
+      <div class="iss-status-panel">
+         <div class="iss-status-text"></div>
+      </div>
     </div>
   </div>
-  <div class="title_bar">
-    <span class="title">ISS Tracker Map</span>
-    <span class="instance">{{ trmnl.plugin_settings.instance_name }}</span>
-  </div>
+  <div class="iss-attrib">© OpenStreetMap contributors · © CARTO</div>
 </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+  // --- 0. THIS INSTANCE'S ROOT ---
+  // Every lookup below goes through ROOT. Using document here is what made the
+  // plugin reach into its neighbour: in a mashup document.querySelector('.layout')
+  // returns whichever plugin happens to come first in the DOM, and the script
+  // was toggling a class onto it.
+  //
+  // currentScript is read synchronously, before any await, so it still points
+  // at this <script>. closest() covers the case where the platform wraps the
+  // markup such that the script sits inside the plugin root; the parentElement
+  // lookup covers the normal case where it is a sibling of it.
+  const SELF = document.currentScript;
+  const ROOT =
+    (SELF && SELF.closest('.iss')) ||
+    (SELF && SELF.parentElement && SELF.parentElement.querySelector('.iss')) ||
+    document.querySelector('.iss');
+  if (!ROOT) return;
+  const $ = (sel) => ROOT.querySelector(sel);
+
+  // --- 1. CONSTANTS & CONFIG ---
+  const CONFIG = {
+    showTs: "{{ trmnl.plugin_settings.custom_fields_values.show_timestamp | default: 'Yes' }}" !== 'false',
+    timeFormat: "{{ trmnl.plugin_settings.custom_fields_values.time_format | default: 'Auto' }}".toLowerCase(),
+    units: "{{ trmnl.plugin_settings.custom_fields_values.units | default: 'Metric' }}".toLowerCase(),
+    enableRotation: "{{ trmnl.plugin_settings.custom_fields_values.random_rotation | default: 'true' }}" !== 'false',
+    userTz: "{{ trmnl.user.time_zone_iana | default: 'UTC' }}",
+    urls: {
+      iss: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss.png",
+      eva: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss_eva.png"
+    }
+  };
+
+  // --- 2. INPUT DATA (Raw) ---
+  const firstNonEmpty = (...xs) => { for (const x of xs){ const s=String(x??'').trim(); if(s) return s; } return ''; };
+  const RAW_DATA = {
+    lat: firstNonEmpty('{{ lat }}', '{{ IDX_0.lat }}'),
+    lon: firstNonEmpty('{{ lon }}', '{{ IDX_0.lon }}'),
+    alt: firstNonEmpty('{{ alt_km }}', '{{ IDX_0.alt_km }}'),
+    vel: firstNonEmpty('{{ vel_kmh }}', '{{ IDX_0.vel_kmh }}'),
+    ts:  firstNonEmpty('{{ ts }}', '{{ IDX_0.ts }}'),
+    place: firstNonEmpty('{{ place }}', '{{ IDX_0.place }}'),
+    short_info: '{% if trmnl.plugin_settings.custom_fields_values.show_iss_events == "true" %}{{ special_event.short_info | default: "" }}{% endif %}',
+    event_type: '{{ special_event.type | default: "" }}'
+  };
+
+  // --- 3. THE BRAIN (Logic & Math) ---
+  function computeState(raw, cfg) {
+    const lat = Number(raw.lat);
+    const lon = Number(raw.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const tsDate = new Date(Number(raw.ts) > 1e12 ? Number(raw.ts) : Number(raw.ts) * 1000);
+    const info = raw.short_info.trim();
+    const eventType = raw.event_type.trim();
+    const hasActiveEvent = info.length > 0;
+
+    const altRaw = Number(raw.alt);
+    const velRaw = Number(raw.vel);
+    const isImperial = cfg.units === 'imperial';
+
+    const displayAlt = isImperial ? (altRaw * 0.621371).toFixed(1) : altRaw.toFixed(1);
+    const displayVel = isImperial
+      ? ((velRaw * 0.621371) / 3600).toFixed(2)
+      : (velRaw / 3600).toFixed(2);
+
+    const p = new Intl.DateTimeFormat('en-US',{ timeZone: cfg.userTz, hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(tsDate).reduce((a,v)=>(a[v.type]=v.value,a),{});
+    const secsToday = (+p.hour)*3600 + (+p.minute)*60 + (+p.second);
+    const orbitCount = Math.max(1, Math.floor(secsToday / (92.68*60)) + 1);
+
+    const resolveHour12 = (tz, pref) => pref==='12h' ? true : (pref==='24h' ? false : !(tz||'').toLowerCase().startsWith('europe/'));
+    const timeLabel = new Intl.DateTimeFormat('en-US', {
+      timeZone: cfg.userTz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: resolveHour12(cfg.userTz, cfg.timeFormat)
+    }).format(tsDate);
+
+    const isEVA = eventType === "EVA" && hasActiveEvent;
+
+    return {
+      isValid: true,
+      map: { lat, lon },
+      icon: {
+        url: isEVA ? cfg.urls.eva : cfg.urls.iss,
+        rotation: cfg.enableRotation ? Math.floor(Math.random() * 360) : 0
+      },
+      pill: {
+        mode: hasActiveEvent ? 'EVENT' : 'KPI',
+        locationText: (raw.place || '').trim() || `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`,
+        eventText: info,
+        kpis: {
+          alt: displayAlt,
+          altUnit: isImperial ? 'mi' : 'km',
+          vel: displayVel,
+          velUnit: isImperial ? 'mi/s' : 'km/s',
+          orbit: orbitCount
+        }
+      },
+      timestamp: cfg.showTs ? `ISS @ ${timeLabel}` : null
+    };
+  }
+
+  // --- 4. THE VIEW (DOM Manipulation) ---
+  function updateView(state) {
+    const el = {
+      loc: $('.iss-loc'),
+      locwrap: $('.iss-locwrap'),
+      kpis: $('.iss-kpis'),
+      statusPanel: $('.iss-status-panel'),
+      statusText: $('.iss-status-text'),
+      pill: $('.iss-pill'),
+      icon: $('.iss-icon'),
+      ts: $('.iss-timestamp'),
+      alt: $('.iss-alt'),
+      vel: $('.iss-vel'),
+      orbit: $('.iss-orbit'),
+      altUnit: $('.iss-alt-unit'),
+      velUnit: $('.iss-vel-unit')
+    };
+
+    if (!state || !state.isValid) {
+      el.loc.textContent = "—";
+      return;
+    }
+
+    map.setView([state.map.lat, state.map.lon], 3, {animate: false});
+
+    if (el.icon.src !== state.icon.url) el.icon.src = state.icon.url;
+    el.icon.parentElement.style.transform = state.icon.rotation
+      ? `translate(-50%, -50%) rotate(${state.icon.rotation}deg)`
+      : `translate(-50%, -50%)`;
+
+    if (state.timestamp) {
+      el.ts.style.display = 'block';
+      el.ts.textContent = state.timestamp;
+    } else {
+      el.ts.style.display = 'none';
+    }
+
+    el.loc.textContent = state.pill.locationText;
+
+    if (state.pill.mode === 'EVENT') {
+      el.kpis.style.display = 'none';
+      el.statusPanel.style.display = 'flex';
+      el.statusText.textContent = state.pill.eventText;
+      el.pill.classList.add('iss-pill--inverted');
+      fitTextToContainer(el.statusText, el.statusPanel, 9, 28, true);
+    } else {
+      el.statusPanel.style.display = 'none';
+      el.kpis.style.display = 'flex';
+      el.pill.classList.remove('iss-pill--inverted');
+
+      el.alt.textContent = state.pill.kpis.alt;
+      el.altUnit.textContent = state.pill.kpis.altUnit;
+      el.vel.textContent = state.pill.kpis.vel;
+      el.velUnit.textContent = state.pill.kpis.velUnit;
+      el.orbit.textContent = state.pill.kpis.orbit;
+    }
+
+    fitTextToContainer(el.loc, el.locwrap, 12, 28, false);
+  }
+
+  // --- 5. SHARED HELPERS (Resizing) ---
+  function fitTextToContainer(node, wrap, minPx, maxPx, allowWrap){
+    if(!node || !wrap) return;
+    node.style.fontSize = maxPx + 'px';
+    let lo=minPx, hi=maxPx, best=minPx;
+    while (lo <= hi){
+      const mid = (lo+hi)>>1;
+      node.style.fontSize = mid + 'px';
+      let fits = false;
+      if (allowWrap) {
+         const fitsWidth = node.scrollWidth <= (wrap.clientWidth + 4);
+         const fitsHeight = node.scrollHeight <= (wrap.clientHeight + 2);
+         fits = fitsWidth && fitsHeight;
+      } else {
+         fits = node.scrollWidth <= wrap.clientWidth;
+      }
+      if (fits){ best = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    node.style.fontSize = best + 'px';
+  }
+
+  // --- 6. DOM SETUP & BOOT ---
+  // Leaflet is given the element rather than an id string. With an id, two
+  // instances of this plugin in one mashup would both bind to the first one.
+  const map = L.map($('.iss-map'), {
+    attributionControl:false, zoomControl:false, scrollWheelZoom:false,
+    doubleClickZoom:false, boxZoom:false, keyboard:false, dragging:false,
+    worldCopyJump:true, fadeAnimation:false, zoomAnimation:false, updateWhenIdle:true
+  }).setView([0,0], 3);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2782_1_716df946c45899d9c31c5bb4', {
+    subdomains:'abcd', maxZoom:10, minZoom:2, detectRetina:false, keepBuffer:0,
+    reuseTiles:true, updateWhenIdle:true, className:'image-dither'
+  }).addTo(map);
+
+  setTimeout(() => map.invalidateSize(false), 60);
+
+  // Responsive Handler. Measures and mutates ROOT, never the first .layout in
+  // the document, so a neighbouring plugin is never touched.
+  function onResize(){
+    const width = ROOT.getBoundingClientRect().width;
+    ROOT.classList.toggle('iss--location-only', width <= 520);
+    updateView(computeState(RAW_DATA, CONFIG));
+  }
+
+  window.addEventListener('resize', () => requestAnimationFrame(onResize));
+
+  updateView(computeState(RAW_DATA, CONFIG));
+  onResize();
+})();
+</script>

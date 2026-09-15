@@ -1,6 +1,10 @@
 # Mirrors the plugin's configuration in the TRMNL editor so the settings live
-# in version control next to the markup they drive. TRMNL is still the source
-# of truth; this file is kept in step by hand.
+# in version control next to the markup they drive. TRMNL remains the source of
+# truth; this file is kept in step by hand.
+#
+# The custom field keynames below are the ones full.liquid actually reads. If a
+# field is renamed in the editor without being renamed here and in the markup,
+# the Liquid default kicks in silently rather than erroring.
 ---
 name: ISS Tracker Map
 description: >-
@@ -9,29 +13,17 @@ description: >-
 version: 1.2.0
 
 strategy: polling
-refresh_interval: 15   # minutes
+polling_url: https://iss-events.5g5wqr7kzx-466.workers.dev
 
+# Fields consumed by full.liquid, with the defaults it falls back to.
 custom_fields:
-  - keyname: unit_system
-    name: Units
-    field_type: select
-    options: [metric, imperial]
-    default: metric
-
-  - keyname: show_timestamp
-    name: Show timestamp
-    field_type: select
-    options: ["yes", "no"]
-    default: "yes"
-
-  - keyname: rotate_icon
-    name: Rotate icon with heading
-    field_type: select
-    options: ["yes", "no"]
-    default: "yes"
-
-  - keyname: show_events
-    name: Show dockings and spacewalks
-    field_type: select
-    options: ["yes", "no"]
-    default: "yes"
+  - keyname: units                 # 'Metric' | 'Imperial'
+    default: Metric
+  - keyname: time_format           # 'Auto' | '12h' | '24h'
+    default: Auto
+  - keyname: show_timestamp        # 'Yes' | 'false'
+    default: "Yes"
+  - keyname: random_rotation       # 'true' | 'false'
+    default: "true"
+  - keyname: show_iss_events       # 'true' | 'false'
+    default: "true"
