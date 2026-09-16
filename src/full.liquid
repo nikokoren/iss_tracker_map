@@ -19,118 +19,81 @@
 {%- endcomment -%}
 
 <style>
-  /* Custom properties live on the plugin root, not :root. At :root they would
-     be inherited by every plugin sharing the screen. */
-  .iss{
-    --iss-pill-radius:12px; --iss-border:#000; --iss-kpi-bar:#d6d6d6;
-    --iss-kpi-value:16px; --iss-kpi-label:10px; --iss-kpi-unit:14px;
+  /* Positioning context for the absolutely-placed map overlays. */
+  .iss{ position:relative; }
 
-    position:relative; height:100%;
-  }
-
-  /* The font override is the one that broke a neighbouring plugin. As `*` it
-     replaced TRMNL's pixel fonts with a proportional system font for every
-     element on screen, so text tuned to fit no longer fit. Confined to this
-     subtree it is harmless. */
-  .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
-  .iss .iss-emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif}
-
-  /* Map */
-  .iss .iss-map{height:100%; width:100%}
-  .iss .iss-map.leaflet-container{ height:100%; width:100%; position:relative; overflow:hidden; background:#ddd; outline:0; }
-  .iss .leaflet-pane{position:absolute; left:0; top:0;}
+  /* Leaflet's container and the handful of its rules this plugin relies on.
+     Renamed from .map, which is the framework's own map component. */
+  .iss .iss-map{ height:100%; width:100%; }
+  .iss .iss-map.leaflet-container{ position:relative; overflow:hidden; background:#ddd; outline:0; }
+  .iss .leaflet-pane{ position:absolute; left:0; top:0; }
   .iss .leaflet-tile{ position:absolute; left:0; top:0; width:256px; height:256px; }
-  .iss .leaflet-zoom-animated{transform-origin:0 0;}
-  .iss .leaflet-zoom-hide{visibility:hidden;}
-  .iss .leaflet-control-attribution{display:none}
+  .iss .leaflet-zoom-animated{ transform-origin:0 0; }
+  .iss .leaflet-zoom-hide{ visibility:hidden; }
+  .iss .leaflet-control-attribution{ display:none; }
 
-  /* Overlay Elements */
-  .iss .iss-timestamp{position:absolute; top:10px; left:14px; z-index:1000; font-size:11px; font-weight:600;}
-  .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900; pointer-events:none}
-  .iss .iss-craft img{width:56px; height:56px; filter:brightness(0)}
-  .iss .iss-attrib{position:absolute; right:5px; bottom:3px; z-index:800; font-size:10px; line-height:1; color:#000; background:white; padding:0; border:0;}
+  /* Centred on the map. There is no utility for translate-based centring. */
+  .iss .iss-craft{ top:50%; left:50%; transform:translate(-50%,-50%); }
+  .iss .iss-craft img{ width:56px; height:56px; filter:brightness(0); }
 
-  /* The Pill */
-  .iss .iss-pill{
-    position:absolute; left:16px; right:16px; bottom:16px; z-index:1000;
-    background:#fff; border:1.5px solid var(--iss-border); border-radius:var(--iss-pill-radius);
-    padding:8px 12px;
-  }
+  /* border--h-* and border--v-* are single-edge pseudo-elements, so a box
+     border is still custom. */
+  .iss .iss-pill{ border:1.5px solid #000; }
 
-  /* Inverted State (Active Event). The !important flags are safe now that the
-     selectors cannot match outside .iss. */
-  .iss .iss-pill--inverted { background:#000 !important; color:#fff !important; border-color:#000 !important; }
-  .iss .iss-pill--inverted .iss-status-panel { border-left-color:#fff; }
-  .iss .iss-pill--inverted .iss-locname,
-  .iss .iss-pill--inverted .iss-status-text { color:#fff !important; }
+  /* The row is a fixed-height band that clips rather than reflowing. */
+  .iss .iss-row{ height:44px; overflow:hidden; }
 
-  /* Flex Layout. Renamed from .row, which is a framework class. */
-  .iss .iss-row{ display:flex; gap:16px; align-items:center; height:44px; overflow:hidden; }
+  /* basis--* is a px scale, so the 53/47 split stays as flex shorthand. */
+  .iss .iss-locwrap{ min-width:0; flex:1 1 53%; }
+  .iss .iss-kpis, .iss .iss-status-panel{ flex:0 0 47%; max-width:47%; }
+  .iss .iss-kpi{ position:relative; padding-left:10px; min-width:0; flex:1 1 0; }
 
-  /* Left Col: Location (Fluid 53%) */
-  .iss .iss-locwrap{ min-width:0; flex:1 1 53%; display:flex; align-items:center; overflow:hidden; }
-  .iss .iss-locname{ font-weight:800; line-height:1.1; white-space:nowrap; font-size:28px; color:#000; }
+  /* divider--v is a themed 1px line; this bar is 3px and rounded, so it is
+     kept as a pseudo-element to leave the look unchanged. */
+  .iss .iss-kpi::before{ content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; background:#d6d6d6; border-radius:2px; }
 
-  /* Right Col: KPIs OR Status (Rigid 47%) */
-  .iss .iss-kpis, .iss .iss-status-panel { flex:0 0 47%; max-width:47%; height:100%; overflow:hidden; }
+  /* No truncation utility, and the value pairs a number with its unit on one
+     baseline. */
+  .iss .iss-locname{ white-space:nowrap; }
+  .iss .iss-value{ display:flex; align-items:baseline; gap:2px; white-space:nowrap; }
 
-  /* KPI Mode */
-  .iss .iss-kpis{ display:flex; gap:8px; align-items:stretch; margin-left:auto; justify-content:flex-end; }
-  .iss .iss-kpi{ position:relative; padding-left:10px; min-width:0; flex:1 1 0; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; text-align:left; }
-  .iss .iss-kpi::before{content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; background:var(--iss-kpi-bar); border-radius:2px}
-
-  /* Renamed from .value / .label / .unit. The first two are framework classes,
-     so styling them here restyled every plugin in the mashup. */
-  .iss .iss-value{ font-size:calc(var(--iss-kpi-value) - 2px); font-weight:700; line-height:1; margin-bottom:2px; display:flex; align-items:baseline; gap:2px; white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .iss .iss-unit{ font-size:var(--iss-kpi-unit); font-weight:700; opacity:.85; margin-left:1px; }
-  .iss .iss-label{ font-size:calc(var(--iss-kpi-label) + 1px); font-weight:700; line-height:1.15; letter-spacing:.2px; white-space:nowrap; color:#222; }
-
-  /* Status Mode */
-  .iss .iss-status-panel { display:none; padding-left:10px; border-left:2px solid var(--iss-border); flex-direction:column; justify-content:center; }
-  .iss .iss-status-text { font-weight:800; line-height:1.2; text-transform:uppercase; color:#000; width:100%; white-space:normal; text-align:left; max-height:100%; display:block; }
-
-  /* Responsive Tweaks. Renamed from .screen--half-h: that namespace belongs to
-     the framework's screen modifiers, and inventing a member of it invites a
-     collision with a real one later. Both modifiers are applied by onResize()
-     to this plugin's own root. */
-  .iss--half-h { --iss-kpi-value:14px; --iss-kpi-label:8.5px; --iss-kpi-unit:10px; }
-  .iss--half-h .iss-pill { padding:6px 8px; }
-  .iss--half-h .iss-locname { font-size:20px; }
-  .iss--half-h .iss-kpi { padding-left:8px; }
-
-  .iss--location-only .iss-kpis { display:none !important; }
-  .iss--location-only .iss-pill { padding:6px 8px; }
-  .iss--location-only .iss-locname { font-size:22px; }
-
-  /* A media query keys off the viewport, which in a mashup is the whole
-     screen rather than this quadrant. onResize() measures the real width; this
-     is kept only as a coarse fallback. */
-  @media (max-width:520px){ .iss .iss-pill .iss-label{ font-size:var(--iss-kpi-label); } }
+  /* .label leaves text-transform at none unless the theme sets it. */
+  .iss .iss-status-text{ text-transform:uppercase; }
 </style>
 
 <div class="layout iss">
   <div class="iss-map"></div>
-  <div class="iss-timestamp">ISS @ —</div>
-  <div class="iss-craft"><img class="iss-icon" alt="ISS" src="" /></div>
+  <div class="iss-timestamp absolute top--2 left--3 z--3 label label--small">ISS @ &mdash;</div>
+  <div class="iss-craft absolute z--2"><img class="iss-icon" alt="ISS" src="" /></div>
 
-  <div class="iss-pill">
-    <div class="iss-row">
-      <div class="iss-locwrap">
-        <div class="iss-loc iss-locname iss-emoji">Passing by, wave 👋</div>
+  <div class="iss-pill absolute bottom--4 left--4 right--4 z--3 bg--white rounded--medium p--2">
+    <div class="iss-row flex flex--center-y gap--base">
+      <div class="iss-locwrap flex flex--center-y">
+        <div class="iss-loc iss-locname value value--small">Passing by, wave &#128075;</div>
       </div>
 
-      <div class="iss-kpis">
-        <div class="iss-kpi"><span class="iss-value"><span class="iss-alt">—</span><span class="iss-alt-unit iss-unit">km</span></span><span class="iss-label">Altitude</span></div>
-        <div class="iss-kpi"><span class="iss-value"><span class="iss-vel">—</span><span class="iss-vel-unit iss-unit">km/s</span></span><span class="iss-label">Velocity</span></div>
-        <div class="iss-kpi"><span class="iss-value"><span class="iss-orbit">—</span></span><span class="iss-label">Orbits today</span></div>
+      <div class="iss-kpis flex flex--stretch gap--small">
+        <div class="iss-kpi flex flex--col flex--center-y">
+          <span class="iss-value value value--xxsmall value--tnums"><span class="iss-alt">&mdash;</span><span class="iss-alt-unit">km</span></span>
+          <span class="label label--small label--gray">Altitude</span>
+        </div>
+        <div class="iss-kpi flex flex--col flex--center-y">
+          <span class="iss-value value value--xxsmall value--tnums"><span class="iss-vel">&mdash;</span><span class="iss-vel-unit">km/s</span></span>
+          <span class="label label--small label--gray">Velocity</span>
+        </div>
+        <div class="iss-kpi flex flex--col flex--center-y">
+          <span class="iss-value value value--xxsmall value--tnums"><span class="iss-orbit">&mdash;</span></span>
+          <span class="label label--small label--gray">Orbits today</span>
+        </div>
       </div>
 
-      <div class="iss-status-panel">
-         <div class="iss-status-text"></div>
+      <div class="iss-status-panel flex flex--col flex--center-y border--v-white pl--3" style="display:none">
+        <div class="iss-status-text value value--xxsmall text--left w--full"></div>
       </div>
     </div>
   </div>
-  <div class="iss-attrib">© OpenStreetMap contributors · © CARTO</div>
+
+  <div class="iss-attrib absolute bottom--0 right--1 z--2 label label--small bg--white">&copy; OpenStreetMap contributors &middot; &copy; CARTO</div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -152,6 +115,21 @@
     document.querySelector('.iss');
   if (!ROOT) return;
   const $ = (sel) => ROOT.querySelector(sel);
+
+  // Mode is expressed by swapping framework utility classes rather than by a
+  // custom rule per state.
+  const MODES = {
+    KPI:   { pill: ['bg--white'], text: [] },
+    EVENT: { pill: ['bg--black'], text: ['text--white'] }
+  };
+
+  function applyMode(pill, text, mode) {
+    for (const [name, sets] of Object.entries(MODES)) {
+      const on = name === mode;
+      for (const c of sets.pill) pill.classList.toggle(c, on);
+      for (const c of sets.text) text.classList.toggle(c, on);
+    }
+  }
 
   // --- 1. CONSTANTS & CONFIG ---
   const CONFIG = {
@@ -271,17 +249,18 @@
     }
 
     el.loc.textContent = state.pill.locationText;
+    el.loc.classList.toggle('text--white', state.pill.mode === 'EVENT');
 
     if (state.pill.mode === 'EVENT') {
       el.kpis.style.display = 'none';
       el.statusPanel.style.display = 'flex';
       el.statusText.textContent = state.pill.eventText;
-      el.pill.classList.add('iss-pill--inverted');
+      applyMode(el.pill, el.statusText, 'EVENT');
       fitTextToContainer(el.statusText, el.statusPanel, 9, 28, true);
     } else {
       el.statusPanel.style.display = 'none';
       el.kpis.style.display = 'flex';
-      el.pill.classList.remove('iss-pill--inverted');
+      applyMode(el.pill, el.statusText, 'KPI');
 
       el.alt.textContent = state.pill.kpis.alt;
       el.altUnit.textContent = state.pill.kpis.altUnit;
