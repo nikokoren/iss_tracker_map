@@ -7,37 +7,31 @@
   ----------------
   A mashup renders every plugin into one document. There is no iframe and no
   shadow root, so this style block is a document-wide stylesheet and this
-  script can see every other plugin's DOM.
+  script can see every other plugin's DOM. The framework ships inside @layer
+  while a plugin's <style> block does not, and unlayered CSS beats layered CSS
+  regardless of specificity, so scope is the only thing holding these styles in.
 
-  The framework ships entirely inside @layer while a plugin's <style> block is
-  unlayered, and unlayered CSS beats layered CSS regardless of specificity. A
-  bare `*` here would outrank even the framework's own multi-class rules, so
-  scope is the only thing holding these styles in.
+  MAP
+  ---
+  The map is the framework's own component rather than Leaflet. That hands the
+  runtime the tile source, per-device dithering, the attribution, the WebGL
+  fallback, and readiness: terminalize awaits every attached map through
+  TRMNLMaps.settle() before it captures, where the Leaflet version raced a
+  setTimeout. TRMNLMaps.watch() also rebuilds the map when the device, scale,
+  mode or theme changes.
 
-  STYLING
-  -------
-  Chrome is framework utilities in the markup (absolute, bottom--2, bg--white,
-  rounded--medium, p--2, flex, value, label). Only what the framework has no
-  utility for is left below. Notably the typography is now the framework's:
-  TRMNL16 is a pixel font built for 1-bit e-ink, where the previous
-  system-ui override was antialiased for LCD.
+  Note center is [longitude, latitude], the opposite order to Leaflet's.
 
   Identical in content to half_vertical.liquid. Change both together.
 {%- endcomment -%}
 
-<style>
-  /* Positioning context for the absolutely-placed map overlays. */
-  .iss{ position:relative; }
+<link href="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.css" rel="stylesheet">
+<script src="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.js"></script>
 
-  /* Leaflet's container and the handful of its rules this plugin relies on.
-     Renamed from .map, which is the framework's own map component. */
-  .iss .iss-map{ height:100%; width:100%; }
-  .iss .iss-map.leaflet-container{ position:relative; overflow:hidden; background:#ddd; outline:0; }
-  .iss .leaflet-pane{ position:absolute; left:0; top:0; }
-  .iss .leaflet-tile{ position:absolute; left:0; top:0; width:256px; height:256px; }
-  .iss .leaflet-zoom-animated{ transform-origin:0 0; }
-  .iss .leaflet-zoom-hide{ visibility:hidden; }
-  .iss .leaflet-control-attribution{ display:none; }
+<style>
+  /* Positioning context for the overlays. The framework's .map sets its own
+     size, so there is no map sizing rule here any more. */
+  .iss{ position:relative; }
 
   /* Centred on the map. There is no utility for translate-based centring. */
   .iss .iss-craft{ top:50%; left:50%; transform:translate(-50%,-50%); }
@@ -48,6 +42,11 @@
      text is short. */
   .iss .iss-pill{ border:1.5px solid #000; min-height:40px; }
 
+  /* attach() writes the OSM credit into the map container's bottom-right,
+     where the pill would cover it. TRMNL requires it to stay visible, so it is
+     lifted clear of the pill's 40px min-height plus its 8px offset. */
+  .iss .map__attribution{ bottom:52px; }
+
   /* No truncation utility. */
   .iss .iss-text{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* Event text wraps instead of truncating, and is upper-cased: .label leaves
@@ -55,8 +54,13 @@
   .iss .iss-text--event{ white-space:normal; text-transform:uppercase; }
 </style>
 
-<div class="layout iss">
-  <div class="iss-map"></div>
+<div class="layout layout--col iss">
+  <div class="iss-map map stretch w--full">
+    <div class="map__fallback flex flex--center h--full">
+      <span class="label label--small">Map unavailable on this device</span>
+    </div>
+  </div>
+
   <div class="iss-craft absolute z--2"><img class="iss-icon" alt="ISS" src="" /></div>
 
   <div class="iss-pill absolute bottom--2 left--2 right--2 z--3 bg--white rounded--medium p--2 flex flex--center">
@@ -64,13 +68,9 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
   // --- 0. THIS INSTANCE'S ROOT ---
-  // Every lookup goes through ROOT. document.getElementById would find the
-  // first match in the mashup, which is another plugin's or this plugin's
-  // other instance, never reliably this one.
   const SELF = document.currentScript;
   const ROOT =
     (SELF && SELF.closest('.iss')) ||
@@ -97,6 +97,8 @@
   // --- 1. CONSTANTS & CONFIG ---
   const CONFIG = {
     enableRotation: "{{ trmnl.plugin_settings.custom_fields_values.random_rotation | default: 'true' }}" !== 'false',
+    zoom: 2,
+    preset: 'outline',
     urls: {
       iss: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss.png",
       eva: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss_eva.png"
@@ -137,30 +139,21 @@
     };
   }
 
-  // --- 4. THE VIEW (Compact Specific) ---
+  // --- 4. THE VIEW ---
   function updateView(state) {
-    const el = {
-      pill: $('.iss-pill'),
-      text: $('.iss-text'),
-      icon: $('.iss-icon')
-    };
+    const el = { pill: $('.iss-pill'), text: $('.iss-text'), icon: $('.iss-icon') };
 
     if (!state || !state.isValid) {
       el.text.textContent = "—";
+      el.icon.style.display = 'none';
       return;
     }
 
-    // A. Map Update
-    const center = map.project([state.map.lat, state.map.lon], 2);
-    map.setView(map.unproject([center.x, center.y], 2), 2, {animate: false});
-
-    // B. Icon Update
     if (el.icon.src !== state.icon.url) el.icon.src = state.icon.url;
     el.icon.parentElement.style.transform = state.icon.rotation
       ? `translate(-50%, -50%) rotate(${state.icon.rotation}deg)`
       : `translate(-50%, -50%)`;
 
-    // C. Pill Logic
     el.text.textContent = state.pill.text;
     applyMode(el.pill, el.text, state.pill.mode);
 
@@ -193,20 +186,23 @@
   }
 
   // --- 6. BOOT ---
-  // Leaflet is handed the element, not an id string.
-  const map = L.map($('.iss-map'), {
-    attributionControl:false, zoomControl:false, scrollWheelZoom:false,
-    doubleClickZoom:false, boxZoom:false, keyboard:false, dragging:false,
-    worldCopyJump:true, fadeAnimation:false, zoomAnimation:false, updateWhenIdle:true
-  }).setView([0,0], 2);
+  const state = computeState(RAW_DATA, CONFIG);
+  updateView(state);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2782_1_716df946c45899d9c31c5bb4', {
-    subdomains:'abcd', maxZoom:10, minZoom:2, detectRetina:false, keepBuffer:0,
-    reuseTiles:true, updateWhenIdle:true, className:'image-dither'
-  }).addTo(map);
-
-  setTimeout(() => map.invalidateSize(false), 60);
-
-  updateView(computeState(RAW_DATA, CONFIG));
+  // watch() rebuilds the map on device/scale/mode/theme changes and attaches
+  // each one to the runtime. Without WebGL it flags the container
+  // data-map-unsupported and never calls the builder, which is what reveals
+  // .map__fallback above.
+  const mapEl = $('.iss-map');
+  if (state && state.isValid && mapEl &&
+      typeof TRMNLMaps !== 'undefined' && typeof maplibregl !== 'undefined') {
+    TRMNLMaps.watch(mapEl, () => new maplibregl.Map(TRMNLMaps.options({
+      el: mapEl,
+      preset: CONFIG.preset,
+      center: [state.map.lon, state.map.lat],   // [lng, lat], not Leaflet's order
+      zoom: CONFIG.zoom,
+      labels: 'major'
+    })));
+  }
 })();
 </script>

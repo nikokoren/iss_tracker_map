@@ -229,3 +229,66 @@ No text-fitting utility, so `fitTextToContainer`'s binary search stays. There
 is a `data-clamp` system in `plugins.js`, but it trims lines rather than
 scaling font size to fit. The fit function sets an inline `font-size`, which
 outranks the `value--*` class on the same element.
+
+## The framework Map component
+
+On the `framework-maps` branch the plugin drops Leaflet for the framework's own
+Map component. Custom CSS across all four views falls from 160 declarations to
+94; the compact views go from 31 to 14.
+
+```js
+TRMNLMaps.watch(mapEl, () => new maplibregl.Map(TRMNLMaps.options({
+  el: mapEl, preset: 'outline',
+  center: [lon, lat],          // [lng, lat], the opposite order to Leaflet
+  zoom: 2, labels: 'major'
+})));
+```
+
+```html
+<div class="layout layout--col iss">
+  <div class="iss-map map stretch w--full">
+    <div class="map__fallback flex flex--center h--full">…</div>
+  </div>
+```
+
+`stretch` is required — without it the container collapses and the canvas
+renders at the wrong height.
+
+### What the runtime takes over
+
+- **Tiles.** `https://maps.trmnl.com/tiles/osm/{z}/{x}/{y}`, no key. This
+  retires the CARTO key that was embedded in the published markup of all four
+  views.
+- **Attribution.** `attach()` writes the OSM credit into the container, so the
+  hand-rolled `.iss-attrib` element is gone.
+- **Dithering.** Vector tiles painted per device and bit depth, rather than
+  raster tiles run through a CSS filter.
+- **Readiness.** `terminalize` awaits every attached map through
+  `TRMNLMaps.settle()` before capture. The Leaflet version raced a
+  `setTimeout(… , 60)`.
+- **Rebuilds.** `watch()` rebuilds on device, scale, mode and theme changes.
+- **No WebGL.** The container is flagged `data-map-unsupported`, the builder is
+  never called and `.map__fallback` shows. There was no fallback before.
+
+### What stays
+
+The ISS icon is still a rotated PNG overlay centred on the map — `dot()` draws a
+themed disc and cannot place custom artwork. Since the camera centres on the
+station, a centred overlay still lands in the right place.
+
+One rule had to be added back: `attach()` places the credit at the container's
+bottom-right, where the compact views' pill covers it. TRMNL requires it to
+stay visible, so `.iss .map__attribution{ bottom:52px }` lifts it clear.
+
+### Verified, and not
+
+Rendered against the published framework CSS and JS with real vector tiles, in
+both calm and event modes, at each view's real geometry. The neighbouring
+weather quadrant still matches the control.
+
+Not verified from here: that the account's framework version exposes
+`TRMNLMaps` (the Map component is documented in 3.3, not 3.1), that
+`maps.trmnl.com` is reachable from TRMNL's own renderer, and how the dithered
+vector map reads on a real panel. The sandbox proxy's CA is not in headless
+Chromium's trust store, so tiles were pre-fetched with curl and served locally;
+the plugin itself carries no such override.

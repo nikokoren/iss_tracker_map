@@ -18,19 +18,15 @@
   Run `npm run lint` before publishing.
 {%- endcomment -%}
 
+<link href="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.css" rel="stylesheet">
+<script src="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.js"></script>
+
 <style>
   /* Positioning context for the absolutely-placed map overlays. */
   .iss{ position:relative; }
 
-  /* Leaflet's container and the handful of its rules this plugin relies on.
-     Renamed from .map, which is the framework's own map component. */
-  .iss .iss-map{ height:100%; width:100%; }
-  .iss .iss-map.leaflet-container{ position:relative; overflow:hidden; background:#ddd; outline:0; }
-  .iss .leaflet-pane{ position:absolute; left:0; top:0; }
-  .iss .leaflet-tile{ position:absolute; left:0; top:0; width:256px; height:256px; }
-  .iss .leaflet-zoom-animated{ transform-origin:0 0; }
-  .iss .leaflet-zoom-hide{ visibility:hidden; }
-  .iss .leaflet-control-attribution{ display:none; }
+  /* The framework's .map sets its own size, so there is no map sizing rule
+     here any more. */
 
   /* Centred on the map. There is no utility for translate-based centring. */
   .iss .iss-craft{ top:50%; left:50%; transform:translate(-50%,-50%); }
@@ -61,8 +57,12 @@
   .iss .iss-status-text{ text-transform:uppercase; }
 </style>
 
-<div class="layout iss">
-  <div class="iss-map"></div>
+<div class="layout layout--col iss">
+  <div class="iss-map map stretch w--full">
+    <div class="map__fallback flex flex--center h--full">
+      <span class="label label--small">Map unavailable on this device</span>
+    </div>
+  </div>
   <div class="iss-timestamp absolute top--2 left--3 z--3 label label--small">ISS @ &mdash;</div>
   <div class="iss-craft absolute z--2"><img class="iss-icon" alt="ISS" src="" /></div>
 
@@ -93,9 +93,7 @@
     </div>
   </div>
 
-  <div class="iss-attrib absolute bottom--0 right--1 z--2 label label--small bg--white">&copy; OpenStreetMap contributors &middot; &copy; CARTO</div>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
   // --- 0. THIS INSTANCE'S ROOT ---
@@ -138,6 +136,8 @@
     units: "{{ trmnl.plugin_settings.custom_fields_values.units | default: 'Metric' }}".toLowerCase(),
     enableRotation: "{{ trmnl.plugin_settings.custom_fields_values.random_rotation | default: 'true' }}" !== 'false',
     userTz: "{{ trmnl.user.time_zone_iana | default: 'UTC' }}",
+    zoom: 3,
+    preset: 'outline',
     urls: {
       iss: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss.png",
       eva: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss_eva.png"
@@ -234,7 +234,6 @@
       return;
     }
 
-    map.setView([state.map.lat, state.map.lon], 3, {animate: false});
 
     if (el.icon.src !== state.icon.url) el.icon.src = state.icon.url;
     el.icon.parentElement.style.transform = state.icon.rotation
@@ -293,33 +292,25 @@
     node.style.fontSize = best + 'px';
   }
 
-  // --- 6. DOM SETUP & BOOT ---
-  // Leaflet is given the element rather than an id string. With an id, two
-  // instances of this plugin in one mashup would both bind to the first one.
-  const map = L.map($('.iss-map'), {
-    attributionControl:false, zoomControl:false, scrollWheelZoom:false,
-    doubleClickZoom:false, boxZoom:false, keyboard:false, dragging:false,
-    worldCopyJump:true, fadeAnimation:false, zoomAnimation:false, updateWhenIdle:true
-  }).setView([0,0], 3);
+  // --- 6. BOOT ---
+  const state = computeState(RAW_DATA, CONFIG);
+  updateView(state);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2782_1_716df946c45899d9c31c5bb4', {
-    subdomains:'abcd', maxZoom:10, minZoom:2, detectRetina:false, keepBuffer:0,
-    reuseTiles:true, updateWhenIdle:true, className:'image-dither'
-  }).addTo(map);
-
-  setTimeout(() => map.invalidateSize(false), 60);
-
-  // Responsive Handler. Measures and mutates ROOT, never the first .layout in
-  // the document, so a neighbouring plugin is never touched.
-  function onResize(){
-    const width = ROOT.getBoundingClientRect().width;
-    ROOT.classList.toggle('iss--location-only', width <= 520);
-    updateView(computeState(RAW_DATA, CONFIG));
+  // watch() rebuilds the map on device/scale/mode/theme changes and attaches
+  // each one to the runtime. Without WebGL it flags the container
+  // data-map-unsupported and never calls the builder, which is what reveals
+  // .map__fallback above.
+  const mapEl = $('.iss-map');
+  if (state && state.isValid && mapEl &&
+      typeof TRMNLMaps !== 'undefined' && typeof maplibregl !== 'undefined') {
+    TRMNLMaps.watch(mapEl, () => new maplibregl.Map(TRMNLMaps.options({
+      el: mapEl,
+      preset: CONFIG.preset,
+      center: [state.map.lon, state.map.lat],   // [lng, lat], not Leaflet's order
+      zoom: CONFIG.zoom,
+      labels: 'major'
+    })));
   }
 
-  window.addEventListener('resize', () => requestAnimationFrame(onResize));
-
-  updateView(computeState(RAW_DATA, CONFIG));
-  onResize();
 })();
 </script>
