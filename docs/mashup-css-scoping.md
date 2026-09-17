@@ -178,54 +178,28 @@ or on an ancestor of it reachable through descendant/child combinators only.
 
 `npm run lint` enforces the selector rules and exits non-zero on a violation.
 
-## Framework-first styling
+## Work parked on a branch
 
-Separately from the scoping fix, most of the chrome was rebuilt on framework
-utilities. Custom CSS dropped from 66 declarations to 31 in the compact views
-and from 145 to 49 in `full` / `half_horizontal`.
+Two further changes were built and verified, then kept off `main` so that the
+scoping fix could ship on its own. Shipping a cosmetic change in the same
+release as a bug fix makes it harder to tell which one caused what, and the
+plugin already had one report against it.
 
-| Was | Now |
-| --- | --- |
-| `position:absolute; left:8px; right:8px; bottom:8px` | `absolute left--2 right--2 bottom--2` |
-| `z-index:1000` | `z--3` |
-| `background:#fff` / `#000` | `bg--white` / `bg--black` |
-| `border-radius:12px` | `rounded--medium` |
-| `padding:8px 10px` | `p--2` |
-| `display:flex; align-items:center; justify-content:center` | `flex flex--center` |
-| `font-weight:800; font-size:18px` | `value value--xxsmall` |
-| `color:#222` on KPI labels | `label--gray` |
-| `border-left:2px solid #fff` | `border--v-white` |
-| `text-align:center` | `text--center` |
-| `width:100%` | `w--full` |
-| `*{box-sizing:border-box}` | already in `@layer tn--normalize` — deleted |
+**`framework-maps`** holds both, in two commits:
 
-Two things this buys beyond less code. The spacing utilities are
-`calc(8px * var(--content-scale))`, so they follow the user's scale setting
-where the old hardcoded pixels did not. And deleting
-`*{font-family:system-ui,…}` returns the plugin to TRMNL16, a pixel font built
-for 1-bit e-ink, where system-ui is antialiased for LCD.
+- Rebuilding the chrome on framework utilities (`absolute`, `bottom--2`,
+  `bg--white`, `rounded--medium`, `p--2`, `flex`, `value`, `label`). Custom CSS
+  across the four views falls from 160 declarations to 94. This is also what
+  deletes `*{font-family:system-ui,…}` and returns the plugin to TRMNL16, a
+  pixel font built for 1-bit e-ink — the one visible change.
+- Replacing Leaflet with the framework's own Map component. Tiles move to
+  `maps.trmnl.com` with no key, retiring the CARTO key embedded in the
+  published markup; `attach()` writes the OSM credit; `terminalize` awaits the
+  map through `settle()` instead of racing a `setTimeout`.
 
-### What stayed custom, and why
+The branch is based on the utilities commit, so merging it brings both changes
+along. To take the map port alone, cherry-pick its commit onto `main`.
 
-- **The pill's box border.** `border--h-*` and `border--v-*` are single-edge
-  pseudo-elements; there is no four-sided border utility.
-- **`translate(-50%,-50%)` icon centring** and `filter:brightness(0)`.
-- **`text-overflow:ellipsis`** — no truncation utility.
-- **The 53/47 location/KPI split.** `basis--*` is a pixel scale, not
-  percentages, so this stays flex shorthand.
-- **The 3px rounded KPI bar.** `divider--v` exists but is a themed 1px line,
-  which is a different look; kept as a pseudo-element to leave the design
-  unchanged.
-- **`text-transform:uppercase`** on event text — `.label` leaves
-  `text-transform` at `none` unless the theme sets it.
-- **The Leaflet rules**, seven of them. These disappear entirely if the plugin
-  moves to the framework's own Map component (MapLibre-backed, documented in
-  3.3), which would also retire the CARTO key currently embedded in the
-  published markup.
-
-### What the framework does not provide
-
-No text-fitting utility, so `fitTextToContainer`'s binary search stays. There
-is a `data-clamp` system in `plugins.js`, but it trims lines rather than
-scaling font size to fit. The fit function sets an inline `font-size`, which
-outranks the `value--*` class on the same element.
+Before adopting the map port, confirm the account's framework version exposes
+`TRMNLMaps`. The Map component is documented in 3.3, not 3.1, and that could
+not be checked from outside the TRMNL editor.

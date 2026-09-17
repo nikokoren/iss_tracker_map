@@ -1,7 +1,8 @@
 {%- comment -%}
   half_vertical.liquid — ISS Tracker Map (compact view)
 
-  Rendered in mashups alongside other plugins.
+  This is the view a 2x2 / 4-up mashup renders, so it is the one that reached
+  into a neighbouring plugin.
 
   SCOPING CONTRACT
   ----------------
@@ -9,58 +10,83 @@
   shadow root, so this style block is a document-wide stylesheet and this
   script can see every other plugin's DOM.
 
-  The framework ships entirely inside @layer while a plugin's <style> block is
-  unlayered, and unlayered CSS beats layered CSS regardless of specificity. A
-  bare `*` here would outrank even the framework's own multi-class rules, so
-  scope is the only thing holding these styles in.
-
-  STYLING
-  -------
-  Chrome is framework utilities in the markup (absolute, bottom--2, bg--white,
-  rounded--medium, p--2, flex, value, label). Only what the framework has no
-  utility for is left below. Notably the typography is now the framework's:
-  TRMNL16 is a pixel font built for 1-bit e-ink, where the previous
-  system-ui override was antialiased for LCD.
+  Note that the framework ships entirely inside @layer (tn--normalize,
+  tn--elements, tn--components, tn--base, tn--device-overrides, tn--utilities)
+  while a plugin's <style> block is unlayered. Unlayered CSS beats layered CSS
+  regardless of specificity, so a bare `*` here outranks even the framework's
+  own multi-class rules. Scope is the only thing holding these styles in.
 
   Identical in content to quadrant.liquid. Change both together.
 {%- endcomment -%}
 
 <style>
-  /* Positioning context for the absolutely-placed map overlays. */
-  .iss{ position:relative; }
+  /* --- CSS: COMPACT LAYOUT --- */
+  .iss{
+    --iss-border:#000;
+    position:relative; height:100%; width:100%; overflow:hidden;
+  }
 
-  /* Leaflet's container and the handful of its rules this plugin relies on.
-     Renamed from .map, which is the framework's own map component. */
-  .iss .iss-map{ height:100%; width:100%; }
-  .iss .iss-map.leaflet-container{ position:relative; overflow:hidden; background:#ddd; outline:0; }
-  .iss .leaflet-pane{ position:absolute; left:0; top:0; }
+  /* The reset was `*`, which set margin:0 and padding:0 on every element in
+     the mashup. Because plugin styles are unlayered it outranked the
+     framework's own .view--quadrant .layout rule, so a neighbouring plugin
+     lost its 10px padding and its title bar's 0 10px, jamming content against
+     the edges. Confined here it only resets this plugin's own elements. */
+  .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; box-sizing:border-box;}
+
+  /* Map. Renamed from .map, which is a framework class — and which never
+     applied here anyway, because the map div carried only an id. */
+  .iss .iss-map{height:100%; width:100%}
+  .iss .iss-map.leaflet-container{ height:100%; width:100%; position:relative; overflow:hidden; background:#ddd; outline:0; }
+  .iss .leaflet-pane{position:absolute; left:0; top:0;}
   .iss .leaflet-tile{ position:absolute; left:0; top:0; width:256px; height:256px; }
-  .iss .leaflet-zoom-animated{ transform-origin:0 0; }
-  .iss .leaflet-zoom-hide{ visibility:hidden; }
-  .iss .leaflet-control-attribution{ display:none; }
+  .iss .leaflet-zoom-animated{transform-origin:0 0;}
+  .iss .leaflet-zoom-hide{visibility:hidden;}
+  .iss .leaflet-control-attribution{display:none}
 
-  /* Centred on the map. There is no utility for translate-based centring. */
-  .iss .iss-craft{ top:50%; left:50%; transform:translate(-50%,-50%); }
-  .iss .iss-craft img{ width:48px; height:48px; filter:brightness(0); }
+  /* Centered Icon */
+  .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900;}
+  .iss .iss-craft img{width:48px; height:48px; filter:brightness(0)}
 
-  /* border--h-* and border--v-* are single-edge pseudo-elements, so a box
-     border is still custom. min-height keeps the pill stable when the fitted
-     text is short. */
-  .iss .iss-pill{ border:1.5px solid #000; min-height:40px; }
+  /* The "Mini Pill" at bottom */
+  .iss .iss-mini-pill {
+    position:absolute; left:8px; right:8px; bottom:8px; z-index:1000;
+    background:#fff; border:1.5px solid var(--iss-border); border-radius:12px;
+    padding:8px 10px;
+    display:flex; align-items:center; justify-content:center;
+    min-height: 40px;
+    transition: background-color 0.2s, color 0.2s;
+  }
 
-  /* No truncation utility. */
-  .iss .iss-text{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  /* Event text wraps instead of truncating, and is upper-cased: .label leaves
-     text-transform at none unless the theme sets it. */
-  .iss .iss-text--event{ white-space:normal; text-transform:uppercase; }
+  /* Text Styling */
+  .iss .iss-text {
+    font-weight:800; font-size:18px; line-height:1.1;
+    text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    width: 100%; color: #000;
+  }
+
+  /* --- EVENT MODE: INVERTED --- */
+  .iss .iss-mini-pill--event {
+    background: #000; border-color: #000;
+    align-items: center; justify-content: flex-start;
+  }
+
+  /* Wrap text when event is active */
+  .iss .iss-mini-pill--event .iss-text {
+    color: #fff;
+    white-space: normal; /* Allow wrapping */
+    text-align: left;
+    font-size: 13px; /* Smaller for detailed text */
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
 </style>
 
 <div class="layout iss">
   <div class="iss-map"></div>
-  <div class="iss-craft absolute z--2"><img class="iss-icon" alt="ISS" src="" /></div>
+  <div class="iss-craft"><img class="iss-icon" alt="ISS" src="" /></div>
 
-  <div class="iss-pill absolute bottom--2 left--2 right--2 z--3 bg--white rounded--medium p--2 flex flex--center">
-    <div class="iss-text value value--xxsmall text--center w--full">Loading...</div>
+  <div class="iss-mini-pill">
+    <div class="iss-text">Loading...</div>
   </div>
 </div>
 
@@ -69,8 +95,8 @@
 (() => {
   // --- 0. THIS INSTANCE'S ROOT ---
   // Every lookup goes through ROOT. document.getElementById would find the
-  // first match in the mashup, which is another plugin's or this plugin's
-  // other instance, never reliably this one.
+  // first #map in the mashup, which is another plugin's or this plugin's other
+  // instance, never reliably this one.
   const SELF = document.currentScript;
   const ROOT =
     (SELF && SELF.closest('.iss')) ||
@@ -78,21 +104,6 @@
     document.querySelector('.iss');
   if (!ROOT) return;
   const $ = (sel) => ROOT.querySelector(sel);
-
-  // Mode is expressed by swapping framework utility classes rather than by a
-  // custom rule per state.
-  const MODES = {
-    LOCATION: { pill: ['bg--white'], text: ['text--center'] },
-    EVENT:    { pill: ['bg--black'], text: ['text--left', 'text--white', 'iss-text--event'] }
-  };
-
-  function applyMode(pill, text, mode) {
-    for (const [name, sets] of Object.entries(MODES)) {
-      const on = name === mode;
-      for (const c of sets.pill) pill.classList.toggle(c, on);
-      for (const c of sets.text) text.classList.toggle(c, on);
-    }
-  }
 
   // --- 1. CONSTANTS & CONFIG ---
   const CONFIG = {
@@ -140,7 +151,7 @@
   // --- 4. THE VIEW (Compact Specific) ---
   function updateView(state) {
     const el = {
-      pill: $('.iss-pill'),
+      pill: $('.iss-mini-pill'),
       text: $('.iss-text'),
       icon: $('.iss-icon')
     };
@@ -160,20 +171,19 @@
       ? `translate(-50%, -50%) rotate(${state.icon.rotation}deg)`
       : `translate(-50%, -50%)`;
 
-    // C. Pill Logic
+    // C. Pill Logic (The big difference from Full Screen)
     el.text.textContent = state.pill.text;
-    applyMode(el.pill, el.text, state.pill.mode);
 
     if (state.pill.mode === 'EVENT') {
+      el.pill.classList.add('iss-mini-pill--event');
       fitTextToContainer(el.text, el.pill, 10, 16, true);
     } else {
+      el.pill.classList.remove('iss-mini-pill--event');
       fitTextToContainer(el.text, el.pill, 12, 18, false);
     }
   }
 
   // --- 5. HELPERS ---
-  // The framework has no text-fitting utility, so the binary search stays. It
-  // sets an inline font-size, which outranks the value--* class above.
   function fitTextToContainer(node, wrap, minPx, maxPx, allowWrap){
     if(!node || !wrap) return;
     node.style.fontSize = maxPx + 'px';
