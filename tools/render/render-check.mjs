@@ -10,7 +10,7 @@
 // Usage (from tools/render, after `npm ci` and `gem install liquid`):
 //   npm run check                       # every case
 //   SRC=path npm run check              # render another copy of src/ (e.g. the published one)
-//   VIEW=full DEVICE=x_land ONLY=dateline JOBS=3 DEBUG=1 npm run check
+//   VIEW=full DEVICE=x_land ONLY=dateline-east,manitoba JOBS=3 DEBUG=1 npm run check
 // Screenshots and results.json go to tools/render/out/ (git-ignored).
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -99,7 +99,7 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const cases = [];
 for (const view of (process.env.VIEW ? [process.env.VIEW] : Object.keys(LAYOUTS)))
   for (const device of (process.env.DEVICE ? [process.env.DEVICE] : Object.keys(DEVICES)))
-    for (const payload of (process.env.ONLY ? [process.env.ONLY] : Object.keys(PAYLOADS)))
+    for (const payload of (process.env.ONLY ? process.env.ONLY.split(",") : Object.keys(PAYLOADS)))
       for (const settings of Object.keys(SETTINGS)) cases.push({ view, device, payload, settings });
 
 const browser = await chromium.launch({
@@ -234,6 +234,20 @@ async function runCase(c) {
         const tr = t.getBoundingClientRect(), name = t.textContent.trim().slice(0, 40);
         if (tr.left < left - 1 || tr.right > right + 1) fails.push(`place name cut: "${name}" (${Math.round(tr.left - left)}, ${Math.round(right - tr.right)} page px inside)`);
         if (t.style.fontSize) notes.push(`place name fitted: "${name}" ${t.style.fontSize}`);
+      }
+      // An ISS event: the inverted pill shows the payload's text in full.
+      const ev = payload.special_event;
+      if (ev && ev.has_event) {
+        const inverted = root.querySelector(".iss-pill--inverted, .iss-mini-pill--event");
+        if (!inverted) fails.push("event pill not shown");
+        const t = root.querySelector(".iss-status-text") || root.querySelector(".iss-text");
+        if (t.textContent.trim() !== ev.short_info.trim()) fails.push(`event text is "${t.textContent.trim().slice(0, 40)}"`);
+        const box = t.classList.contains("iss-status-text") ? root.querySelector(".iss-status-panel") : inverted;
+        if (t.scrollHeight > box.clientHeight + 2 || t.scrollWidth > t.clientWidth + 2) fails.push(`event text cut (${parseFloat(getComputedStyle(t).fontSize)}px)`);
+        notes.push(`event text ${parseFloat(getComputedStyle(t).fontSize)}px`);
+        const pr = inverted && inverted.getBoundingClientRect();
+        if (pr && pr.top < r.top) fails.push("event pill taller than the map");
+        if (pr && hit(pr, root.querySelector(".iss-craft").getBoundingClientRect())) notes.push("event pill covers the station icon");
       }
       // The bigger text on the X must still fit: a KPI whose value or label overflows is cut.
       for (const k of root.querySelectorAll(".iss-kpi")) {

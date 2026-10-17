@@ -18,5 +18,17 @@ latitude, longitude, altitude and velocity in the polling URL's field names; the
 empty because the polling URL names places itself, so the views show coordinates instead, a
 state they handle anyway.
 
-None has an ISS event (`special_event.has_event` was false in every capture), so the event
-state of the pill is not covered.
+No capture had an ISS event (`special_event.has_event` was false in all 21 positions of one
+orbit, 2026-10-17). The `event-*.json` files are captured positions with an event added, built
+from real records through the polling URL's own message templates: the event text is written by
+`scripts/iss-events.mjs` in nikokoren/mission_control (read 2026-10-17), filled with names from
+Launch Library 2 (`ll.thespacedevs.com/2.2.0`, fetched 2026-10-17). Only the minute counts were
+picked, inside each template's time window.
+
+| File | Template | LL2 record | Position |
+| --- | --- | --- | --- |
+| `event-eva-us.json` | EVA active, phrase 0 | Expedition 75 EVA 4 (Adenot, Meir) | `manitoba.json` |
+| `event-eva-russian.json` | EVA active, phrase 0, Russian | Expedition 74 EVA 1 (Kud-Sverchkov, Mikayev) | `south-atlantic.json` |
+| `event-undocking.json` | Undocking confirmed | Cygnus CRS NG-24 (S.S. Steven R. Nagel), Unity nadir; the longest vehicle name in the last 10 | `clayton-us.json` |
+| `event-docking.json` | Docking confirmed | Cargo Dragon C211, Harmony zenith | `north-pacific.json` |
+| `event-launch.json` | Launch success | SpaceX Dragon CRS-2 SpX-35 | `dateline-east.json` |
