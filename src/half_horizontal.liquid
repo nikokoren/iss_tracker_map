@@ -125,7 +125,7 @@
   <div class="iss-pill">
     <div class="iss-row">
       <div class="iss-locwrap">
-        <div class="iss-loc iss-locname iss-emoji">Passing by, wave 👋</div>
+        <div class="iss-loc iss-locname iss-emoji" data-value-fit="true">Passing by, wave 👋</div>
       </div>
 
       <div class="iss-kpis">
@@ -297,7 +297,9 @@
       el.orbit.textContent = state.pill.kpis.orbit;
     }
 
-    fitTextToContainer(el.loc, el.locwrap, 12, cssPx('--iss-loc-max', 28), false);
+    // The place name is fitted by the framework (data-value-fit): during
+    // TRMNL's render it shrinks the name until it fits its column on one line,
+    // down to 8px, and fits again when the screen changes.
   }
 
   // --- 5. SHARED HELPERS (Resizing) ---

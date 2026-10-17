@@ -77,7 +77,10 @@ A case fails when a map isn't built or fully drawn, the station icon is not
 on the station's position, a side of the map is blank (the 180th meridian),
 the OpenStreetMap credit is missing or covered, the icon didn't load, a KPI
 doesn't fit its box, a space in the place name is wider than half its font
-size, or the page throws. Screenshots and `results.json` go to `tools/render/out/`
+size, the place name runs past the box that clips it, or the page throws.
+`LATE=1` renders with a late load order: the plugin's own scripts load after
+it runs, the framework 300 ms later and the size classes 600 ms later, as in
+TRMNL's preview. Screenshots and `results.json` go to `tools/render/out/`
 (git-ignored). It is not in CI: it needs Chromium, Ruby and the network.
 
 `npm run lint` runs in CI on every push. It exits non-zero on any selector that
@@ -155,6 +158,13 @@ overridden under `.screen--lg`, the class the framework puts on the X's
 screen and keys its own `lg:` utilities on. The framework's `lg:` classes
 only apply to its own typography classes, and the pill has its own sizes,
 which the script reads back as the largest size it fits text to.
+
+The place name is fitted by the framework (`data-value-fit="true"`, Framework
+3.4 Fit Value): during TRMNL's render it shrinks the name until it fits on one
+line, down to 8 px, instead of cutting it with an ellipsis. In the compact
+views the name sits in an inline span, because the framework measures the
+element's own box and the text box is always as wide as the pill. Event text
+wraps, so it keeps the script's own fitting.
 
 The place name's font list starts with the text fonts and ends with the emoji
 fonts. The other way round, the spaces came from Noto Color Emoji, whose space

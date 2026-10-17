@@ -222,10 +222,18 @@ async function runCase(c) {
       rects.push({ left: r.left, top: r.top, width: r.width, height: r.height });
       const icon = root.querySelector(".iss-icon");
       if (!icon.complete || !icon.naturalWidth) fails.push("station icon not loaded");
-      // Text the pill had to cut (ellipsis or overflow): counted, not failed; the map change
-      // doesn't touch the pill.
-      for (const t of root.querySelectorAll(".iss-locname, .iss-text")) {
-        if (t.offsetParent && t.scrollWidth > t.clientWidth + 1) notes.push(`pill text cut: "${t.textContent.trim().slice(0, 40)}"`);
+      // The place name, fitted by the framework (data-value-fit): it must lie inside the
+      // nearest box that clips it (overflow not visible; its padding box). Its fitted size goes
+      // into the notes.
+      for (const t of root.querySelectorAll("[data-value-fit]")) {
+        if (!t.offsetParent) continue;
+        let clip = t.parentElement;
+        while (clip && clip !== root && getComputedStyle(clip).overflowX === "visible") clip = clip.parentElement;
+        const b = clip.getBoundingClientRect(), k = clip.offsetWidth ? b.width / clip.offsetWidth : 1;
+        const left = b.left + clip.clientLeft * k, right = left + clip.clientWidth * k;
+        const tr = t.getBoundingClientRect(), name = t.textContent.trim().slice(0, 40);
+        if (tr.left < left - 1 || tr.right > right + 1) fails.push(`place name cut: "${name}" (${Math.round(tr.left - left)}, ${Math.round(right - tr.right)} page px inside)`);
+        if (t.style.fontSize) notes.push(`place name fitted: "${name}" ${t.style.fontSize}`);
       }
       // The bigger text on the X must still fit: a KPI whose value or label overflows is cut.
       for (const k of root.querySelectorAll(".iss-kpi")) {
@@ -310,5 +318,5 @@ fs.writeFileSync(path.join(OUT, "results.json"), JSON.stringify(results, null, 1
 const bad = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - bad}/${results.length} cases pass`);
 const noted = results.filter((r) => r.notes && r.notes.length).length;
-if (noted) console.log(`${noted} with pill text cut (not failed; see results.json)`);
+if (noted) console.log(`${noted} with the place name fitted smaller (see results.json)`);
 process.exit(bad ? 1 : 0);

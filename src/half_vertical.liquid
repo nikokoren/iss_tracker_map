@@ -46,7 +46,6 @@
      the Leaflet map had. */
   .iss .iss-map{height:100%; width:100%}
 
-
   /* Centered Icon */
   .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900;}
   .iss .iss-craft img{width:48px; height:48px; filter:brightness(0)}
@@ -58,13 +57,16 @@
     padding:var(--iss-pad);
     display:flex; align-items:center; justify-content:center;
     min-height: var(--iss-pill-min);
+    overflow:hidden;
     transition: background-color 0.2s, color 0.2s;
   }
 
-  /* Text Styling */
+  /* Text Styling. The framework fits the place name to this box but allows
+     itself a pixel or two over, so the text may run into the pill's padding;
+     the pill, not this box, clips. */
   .iss .iss-text {
     font-weight:800; font-size:var(--iss-text); line-height:1.1;
-    text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    text-align:center; white-space:nowrap;
     width: 100%; color: #000;
   }
 
@@ -90,7 +92,7 @@
   <div class="iss-craft"><img class="iss-icon" alt="ISS" src="" /></div>
 
   <div class="iss-mini-pill">
-    <div class="iss-text">Loading...</div>
+    <div class="iss-text"><span class="iss-fit" data-value-fit="true">Loading...</span></div>
   </div>
 </div>
 
@@ -158,11 +160,12 @@
     const el = {
       pill: $('.iss-mini-pill'),
       text: $('.iss-text'),
+      fit: $('.iss-fit'),
       icon: $('.iss-icon')
     };
 
     if (!state || !state.isValid) {
-      el.text.textContent = "—";
+      el.fit.textContent = "—";
       return;
     }
 
@@ -173,14 +176,21 @@
       : `translate(-50%, -50%)`;
 
     // B. Pill Logic (The big difference from Full Screen)
-    el.text.textContent = state.pill.text;
+    // The place name is fitted by the framework (data-value-fit): during
+    // TRMNL's render it shrinks the name until it fits the pill on one line,
+    // down to 8px, and fits again when the screen changes. It measures the
+    // element's own box, so the name sits in an inline span: .iss-text is as
+    // wide as the pill whatever its text. Event text wraps instead, so it
+    // keeps this script's fitting and the framework leaves it alone.
+    el.fit.textContent = state.pill.text;
 
     if (state.pill.mode === 'EVENT') {
+      el.fit.removeAttribute('data-value-fit');
       el.pill.classList.add('iss-mini-pill--event');
       fitTextToContainer(el.text, el.pill, 10, cssPx('--iss-event', 16), true);
     } else {
+      el.fit.setAttribute('data-value-fit', 'true');
       el.pill.classList.remove('iss-mini-pill--event');
-      fitTextToContainer(el.text, el.pill, 12, cssPx('--iss-text', 18), false);
     }
   }
 
