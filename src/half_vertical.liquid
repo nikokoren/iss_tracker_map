@@ -227,6 +227,22 @@
     if (overlap > 0) pill.style.bottom = (parseFloat(getComputedStyle(pill).bottom) + overlap) + 'px';
   }
 
+  // The map waits until MapLibre and the framework are loaded and the map has
+  // a size, checking every 50 ms for up to 10 s, as Downstream does. A host
+  // can run this script before either has loaded (markup inserted with its
+  // <script src> tags re-created loads them after this one; the map then
+  // stayed empty), and TRMNL's preview sets the screen's size classes after
+  // load.
+  function whenReady(cb){
+    let tries = 0;
+    (function attempt(){
+      const el = $('.iss-map');
+      if (typeof TRMNLMaps !== 'undefined' && typeof maplibregl !== 'undefined' &&
+          el && el.clientWidth && el.clientHeight) return cb();
+      if (++tries <= 200) setTimeout(attempt, 50);
+    })();
+  }
+
   function buildMap(state){
     const el = $('.iss-map');
     if (!state || !el || typeof TRMNLMaps === 'undefined' || typeof maplibregl === 'undefined') return;
@@ -256,6 +272,6 @@
 
   const state = computeState(RAW_DATA, CONFIG);
   updateView(state);
-  buildMap(state);
+  whenReady(() => buildMap(state));
 })();
 </script>

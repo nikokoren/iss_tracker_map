@@ -28,6 +28,7 @@ const CACHE = path.join(here, ".cache");
 const CHROME = process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 const FW_CSS = "https://trmnl.com/css/latest/plugins.css";
 const FW_JS = "https://trmnl.com/js/latest/plugins.js";
+const LATE = !!process.env.LATE;
 
 function renderLiquid(view, ctx) {
   const r = spawnSync("ruby", [path.join(here, "render.rb"), SRC, view], { input: JSON.stringify(ctx), encoding: "utf8" });
@@ -62,12 +63,28 @@ const LAYOUTS = { // view → mashup wrapper and how many copies of the plugin s
 function page(view, device, payload, settings) {
   const S = SETTINGS[settings];
   const ctx = { ...PAYLOADS[payload], trmnl: { user: { time_zone_iana: S.tz }, plugin_settings: { custom_fields_values: S.fields } } };
-  const one = `<div class="view view--${view}">${renderLiquid(view, ctx)}</div>`;
+  let body = renderLiquid(view, ctx);
+  // LATE=1: the load order a host may give the plugin instead of the plain one. The plugin's
+  // external scripts (MapLibre) load only after its inline script has run, as when markup is
+  // inserted with innerHTML and its <script src> tags are re-created; the framework script comes
+  // 300 ms later, and the screen's size classes 600 ms later, as in TRMNL's preview (Downstream
+  // DESIGN_PHILOSOPHY: "TRMNL's preview adds them after load").
+  if (LATE) body = body.replace(/<script src="([^"]+)"><\/script>/g, (_, src) =>
+    `<script>(function(){var s=document.createElement("script");s.src=${JSON.stringify(src)};document.head.appendChild(s);})();</script>`);
+  const one = `<div class="view view--${view}">${body}</div>`;
   const L = LAYOUTS[view];
   const inner = L.mashup ? `<div class="mashup ${L.mashup}">${one.repeat(L.copies)}</div>` : one;
+  const cls = DEVICES[device].cls;
+  if (LATE) return `<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="${FW_CSS}"></head>
+<body class="environment trmnl"><div class="screen">${inner}</div>
+<script>
+setTimeout(function(){var s=document.createElement("script");s.src=${JSON.stringify(FW_JS)};document.head.appendChild(s);}, 300);
+setTimeout(function(){document.querySelector(".screen").className="screen ${cls}";}, 600);
+</script></body></html>`;
   return `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="${FW_CSS}"><script src="${FW_JS}"></script></head>
-<body class="environment trmnl"><div class="screen ${DEVICES[device].cls}">${inner}</div></body></html>`;
+<body class="environment trmnl"><div class="screen ${cls}">${inner}</div></body></html>`;
 }
 
 const pages = new Map();
@@ -175,6 +192,8 @@ async function runCase(c) {
     // As TRMNL's screenshot service does after setting the capture pixel ratio (TRMNLMaps.refresh
     // JSDoc): rebuild the watched maps against the final paint and wait for them to settle. Then
     // MapLibre's own idle on every map, up to 20 s (software WebGL is slow).
+    // LATE: give the plugin's own waiting time to run out before measuring.
+    if (LATE) await p.waitForFunction(() => [...document.querySelectorAll(".iss-map")].every((el) => el.__issMap), null, { timeout: 15000 }).catch(() => {});
     await p.evaluate(() => window.TRMNLMaps && TRMNLMaps.refresh({ maxWaitMs: 60000 }));
     await p.evaluate(() => Promise.race([
       Promise.all([...document.querySelectorAll(".iss-map")].map((el) => new Promise((r) => {
