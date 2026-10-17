@@ -10,7 +10,6 @@ Published as [recipe 135652](https://trmnl.com/recipes/135652).
 ```
 src/                     the plugin, mirroring the TRMNL editor's tabs
   settings.yml           polling and custom fields
-  shared.liquid          the only file with a <style> block
   full.liquid
   half_horizontal.liquid
   half_vertical.liquid
@@ -121,8 +120,10 @@ each pair are identical — change both together:
 | `quadrant.liquid` | map + mini pill | yes |
 | `half_vertical.liquid` | map + mini pill | yes |
 
-`shared.liquid` is unused. Moving the common CSS there would remove the
-duplication, at the cost of a structural change to verify in the editor first.
+There is no `shared.liquid`: the Shared tab is not used, and each view carries
+its own styles and script, map included. Moving the common code there would
+remove the duplication, at the cost of a structural change to verify in the
+editor first.
 
 ## Map
 
