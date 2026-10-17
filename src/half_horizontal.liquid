@@ -397,7 +397,7 @@
   function onResize(){
     const width = ROOT.getBoundingClientRect().width;
     ROOT.classList.toggle('iss--location-only', width <= 520);
-    updateView(computeState(RAW_DATA, CONFIG));
+    updateView(state);
   }
 
   window.addEventListener('resize', () => requestAnimationFrame(onResize));
@@ -406,5 +406,14 @@
   updateView(state);
   whenReady(() => buildMap(state));
   onResize();
+
+  // Fit the text again when the screen's classes change: TRMNL's preview sets
+  // the size classes (screen--lg on the X) after load, which changes the
+  // pill's sizes after this script has fitted the event text. The place name
+  // needs no help; the framework fits it again itself.
+  const screenEl = ROOT.closest('.screen');
+  if (screenEl && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(() => onResize()).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+  }
 })();
 </script>

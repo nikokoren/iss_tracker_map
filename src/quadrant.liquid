@@ -283,5 +283,14 @@
   const state = computeState(RAW_DATA, CONFIG);
   updateView(state);
   whenReady(() => buildMap(state));
+
+  // Fit the text again when the screen's classes change: TRMNL's preview sets
+  // the size classes (screen--lg on the X) after load, which changes the
+  // pill's sizes after this script has fitted the event text. The place name
+  // needs no help; the framework fits it again itself.
+  const screenEl = ROOT.closest('.screen');
+  if (screenEl && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(() => updateView(state)).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+  }
 })();
 </script>
