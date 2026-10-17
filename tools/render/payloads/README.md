@@ -8,6 +8,7 @@ real positions in the same shape.
 | `north-pacific.json` | the plugin's polling URL (`src/settings.yml`), as returned | 2026-10-17 15:29 UTC |
 | `manitoba.json` | the polling URL, as returned | 2026-10-17 15:31 UTC |
 | `clayton-us.json` | the polling URL, as returned | 2026-10-17 15:36 UTC |
+| `south-atlantic.json` | the polling URL, as returned | 2026-10-17 16:00 UTC |
 | `dateline-east.json` | wheretheiss.at, `/v1/satellites/25544/positions`, timestamp 1792249973 (179.95°E) | 2026-10-17 |
 | `dateline-west.json` | the same, timestamp 1792249983 (179.62°W) | 2026-10-17 |
 | `south-indian-ocean.json` | the same, timestamp 1792248023 (51.5°S, the orbit's southern limit) | 2026-10-17 |

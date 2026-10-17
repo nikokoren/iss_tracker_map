@@ -76,8 +76,9 @@ SRC=path/to/other/src npm run check            # another copy of the views
 
 A case fails when a map isn't built or fully drawn, the station icon is not
 on the station's position, a side of the map is blank (the 180th meridian),
-the OpenStreetMap credit is missing or covered, the icon didn't load, or the
-page throws. Screenshots and `results.json` go to `tools/render/out/`
+the OpenStreetMap credit is missing or covered, the icon didn't load, a KPI
+doesn't fit its box, a space in the place name is wider than half its font
+size, or the page throws. Screenshots and `results.json` go to `tools/render/out/`
 (git-ignored). It is not in CI: it needs Chromium, Ruby and the network.
 
 `npm run lint` runs in CI on every push. It exits non-zero on any selector that
@@ -138,7 +139,23 @@ came out nearly white on the TRMNL X.
 - The icon is placed where the map draws the station, not at the centre: on
   a map about as tall as the world, MapLibre moves the centre toward the
   equator rather than show past the poles.
-- The framework writes the OpenStreetMap credit into the map. It is moved to
-  the top right, where no pill covers it.
+- The framework writes the OpenStreetMap credit into the map's bottom-right
+  corner. Where the pill would cover it (half horizontal and the compact
+  views), the script moves the pill up just enough to clear it.
 - If MapLibre or `TRMNLMaps` is missing, the map area stays empty and the
   pill still shows.
+
+## Text sizes on the TRMNL X
+
+The pill's text is one step larger on the X: place name up to 34 px (28 on
+the OG), KPI values 18 px (14), labels 13 px (11), timestamp 13 px (11), the
+compact views' text up to 22 px (18). The sizes are CSS variables on `.iss`,
+overridden under `.screen--lg`, the class the framework puts on the X's
+screen and keys its own `lg:` utilities on. The framework's `lg:` classes
+only apply to its own typography classes, and the pill has its own sizes,
+which the script reads back as the largest size it fits text to.
+
+The place name's font list starts with the text fonts and ends with the emoji
+fonts. The other way round, the spaces came from Noto Color Emoji, whose space
+is about five times as wide (1.25 em against 0.22 em, measured by the render
+check), which spread the words apart.

@@ -23,6 +23,7 @@
   /* --- CSS: COMPACT LAYOUT --- */
   .iss{
     --iss-border:#000;
+    --iss-text:18px; --iss-event:16px; --iss-event-min:13px; --iss-pill-min:40px; --iss-pad:8px 10px;
     position:relative; height:100%; width:100%; overflow:hidden;
   }
 
@@ -33,14 +34,18 @@
      the edges. Confined here it only resets this plugin's own elements. */
   .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; box-sizing:border-box;}
 
+  /* One step larger on the TRMNL X. .screen--lg is the class the framework
+     puts on the X's screen and keys its own lg: utilities on; the pill has its
+     own sizes, so it is set here. The script reads --iss-text and --iss-event
+     as the largest sizes it fits the pill text to. */
+  .screen--lg .iss{
+    --iss-text:22px; --iss-event:19px; --iss-event-min:16px; --iss-pill-min:48px; --iss-pad:10px 12px;
+  }
+
   /* Map. The framework's .map class sizes the container; this keeps the size
      the Leaflet map had. */
   .iss .iss-map{height:100%; width:100%}
 
-  /* The framework writes the OpenStreetMap credit into the map's bottom-right
-     corner, where the full-width pill covers it. The credit has to stay
-     visible, so it goes top right. */
-  .iss .map__attribution{top:0; bottom:auto}
 
   /* Centered Icon */
   .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900;}
@@ -50,15 +55,15 @@
   .iss .iss-mini-pill {
     position:absolute; left:8px; right:8px; bottom:8px; z-index:1000;
     background:#fff; border:1.5px solid var(--iss-border); border-radius:12px;
-    padding:8px 10px;
+    padding:var(--iss-pad);
     display:flex; align-items:center; justify-content:center;
-    min-height: 40px;
+    min-height: var(--iss-pill-min);
     transition: background-color 0.2s, color 0.2s;
   }
 
   /* Text Styling */
   .iss .iss-text {
-    font-weight:800; font-size:18px; line-height:1.1;
+    font-weight:800; font-size:var(--iss-text); line-height:1.1;
     text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     width: 100%; color: #000;
   }
@@ -74,7 +79,7 @@
     color: #fff;
     white-space: normal; /* Allow wrapping */
     text-align: left;
-    font-size: 13px; /* Smaller for detailed text */
+    font-size: var(--iss-event-min); /* Smaller for detailed text */
     text-transform: uppercase;
     line-height: 1.1;
   }
@@ -172,14 +177,15 @@
 
     if (state.pill.mode === 'EVENT') {
       el.pill.classList.add('iss-mini-pill--event');
-      fitTextToContainer(el.text, el.pill, 10, 16, true);
+      fitTextToContainer(el.text, el.pill, 10, cssPx('--iss-event', 16), true);
     } else {
       el.pill.classList.remove('iss-mini-pill--event');
-      fitTextToContainer(el.text, el.pill, 12, 18, false);
+      fitTextToContainer(el.text, el.pill, 12, cssPx('--iss-text', 18), false);
     }
   }
 
   // --- 5. HELPERS ---
+  const cssPx = (name, fallback) => parseFloat(getComputedStyle(ROOT).getPropertyValue(name)) || fallback;
   function fitTextToContainer(node, wrap, minPx, maxPx, allowWrap){
     if(!node || !wrap) return;
     node.style.fontSize = maxPx + 'px';
@@ -208,6 +214,19 @@
   // Zoom 1 shows what Leaflet's zoom 2 did: MapLibre's tiles are 512px,
   // Leaflet's were 256px. It must be a whole number: the framework dithers the
   // map only at an integer zoom.
+  // The framework writes the OpenStreetMap credit into the map's bottom-right
+  // corner. It has to stay readable, so where the pill would cover it, the
+  // pill moves up just enough to clear it (half horizontal and the compact
+  // views; the full view has room).
+  function clearCredit(el, pill){
+    const credit = el.querySelector('.map__attribution');
+    if (!credit || !pill) return;
+    const c = credit.getBoundingClientRect(), p = pill.getBoundingClientRect();
+    const k = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
+    const overlap = (p.bottom - c.top) / k + 3;
+    if (overlap > 0) pill.style.bottom = (parseFloat(getComputedStyle(pill).bottom) + overlap) + 'px';
+  }
+
   function buildMap(state){
     const el = $('.iss-map');
     if (!state || !el || typeof TRMNLMaps === 'undefined' || typeof maplibregl === 'undefined') return;
@@ -229,8 +248,10 @@
       };
       map.on('load', placeCraft);
       map.on('moveend', placeCraft);
+      map.on('load', () => clearCredit(el, $('.iss-mini-pill')));
       return map;
     });
+    clearCredit(el, $('.iss-mini-pill'));
   }
 
   const state = computeState(RAW_DATA, CONFIG);

@@ -24,6 +24,7 @@
   .iss{
     --iss-pill-radius:12px; --iss-border:#000; --iss-kpi-bar:#d6d6d6;
     --iss-kpi-value:16px; --iss-kpi-label:10px; --iss-kpi-unit:14px;
+    --iss-loc-max:28px; --iss-row:44px; --iss-ts:11px; --iss-pad:8px 12px;
 
     position:relative; height:100%;
   }
@@ -33,19 +34,28 @@
      element on screen, so text tuned to fit no longer fit. Confined to this
      subtree it is harmless. */
   .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
-  .iss .iss-emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif}
+  /* Emoji fonts last: listed first, they also supplied the spaces, and Noto
+     Color Emoji's space is several times wider than a text font's, which
+     spread the place name's words apart ("North    Pacific"). Emoji still
+     come from them, since the text fonts have no emoji glyphs. */
+  .iss .iss-emoji{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+
+  /* One step larger on the TRMNL X. .screen--lg is the class the framework
+     puts on the X's screen and keys its own lg: utilities on; the pill has its
+     own sizes, so it is set here. The script reads --iss-loc-max as the
+     largest size it fits the place name and event text to. */
+  .screen--lg .iss{
+    --iss-kpi-value:20px; --iss-kpi-label:12px; --iss-kpi-unit:17px;
+    --iss-loc-max:34px; --iss-row:54px; --iss-ts:13px; --iss-pad:10px 14px;
+  }
 
   /* Map. The framework's .map class sizes the container; this keeps the size
      the Leaflet map had. */
   .iss .iss-map{height:100%; width:100%}
 
-  /* The framework writes the OpenStreetMap credit into the map's bottom-right
-     corner, where the pill covers it in the shorter views. The credit has to
-     stay visible, so it goes top right, clear of the timestamp. */
-  .iss .map__attribution{top:0; bottom:auto}
 
   /* Overlay Elements */
-  .iss .iss-timestamp{position:absolute; top:10px; left:14px; z-index:1000; font-size:11px; font-weight:600;}
+  .iss .iss-timestamp{position:absolute; top:10px; left:14px; z-index:1000; font-size:var(--iss-ts); font-weight:600;}
   .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900; pointer-events:none}
   .iss .iss-craft img{width:56px; height:56px; filter:brightness(0)}
 
@@ -53,7 +63,7 @@
   .iss .iss-pill{
     position:absolute; left:16px; right:16px; bottom:16px; z-index:1000;
     background:#fff; border:1.5px solid var(--iss-border); border-radius:var(--iss-pill-radius);
-    padding:8px 12px;
+    padding:var(--iss-pad);
   }
 
   /* Inverted State (Active Event). The !important flags are safe now that the
@@ -64,11 +74,11 @@
   .iss .iss-pill--inverted .iss-status-text { color:#fff !important; }
 
   /* Flex Layout. Renamed from .row, which is a framework class. */
-  .iss .iss-row{ display:flex; gap:16px; align-items:center; height:44px; overflow:hidden; }
+  .iss .iss-row{ display:flex; gap:16px; align-items:center; height:var(--iss-row); overflow:hidden; }
 
   /* Left Col: Location (Fluid 53%) */
   .iss .iss-locwrap{ min-width:0; flex:1 1 53%; display:flex; align-items:center; overflow:hidden; }
-  .iss .iss-locname{ font-weight:800; line-height:1.1; white-space:nowrap; font-size:28px; color:#000; }
+  .iss .iss-locname{ font-weight:800; line-height:1.1; white-space:nowrap; font-size:var(--iss-loc-max); color:#000; }
 
   /* Right Col: KPIs OR Status (Rigid 47%) */
   .iss .iss-kpis, .iss .iss-status-panel { flex:0 0 47%; max-width:47%; height:100%; overflow:hidden; }
@@ -274,7 +284,7 @@
       el.statusPanel.style.display = 'flex';
       el.statusText.textContent = state.pill.eventText;
       el.pill.classList.add('iss-pill--inverted');
-      fitTextToContainer(el.statusText, el.statusPanel, 9, 28, true);
+      fitTextToContainer(el.statusText, el.statusPanel, 9, cssPx('--iss-loc-max', 28), true);
     } else {
       el.statusPanel.style.display = 'none';
       el.kpis.style.display = 'flex';
@@ -287,10 +297,11 @@
       el.orbit.textContent = state.pill.kpis.orbit;
     }
 
-    fitTextToContainer(el.loc, el.locwrap, 12, 28, false);
+    fitTextToContainer(el.loc, el.locwrap, 12, cssPx('--iss-loc-max', 28), false);
   }
 
   // --- 5. SHARED HELPERS (Resizing) ---
+  const cssPx = (name, fallback) => parseFloat(getComputedStyle(ROOT).getPropertyValue(name)) || fallback;
   function fitTextToContainer(node, wrap, minPx, maxPx, allowWrap){
     if(!node || !wrap) return;
     node.style.fontSize = maxPx + 'px';
@@ -323,6 +334,19 @@
   // Zoom 2 shows what Leaflet's zoom 3 did: MapLibre's tiles are 512px,
   // Leaflet's were 256px. It must be a whole number: the framework dithers the
   // map only at an integer zoom.
+  // The framework writes the OpenStreetMap credit into the map's bottom-right
+  // corner. It has to stay readable, so where the pill would cover it, the
+  // pill moves up just enough to clear it (half horizontal and the compact
+  // views; the full view has room).
+  function clearCredit(el, pill){
+    const credit = el.querySelector('.map__attribution');
+    if (!credit || !pill) return;
+    const c = credit.getBoundingClientRect(), p = pill.getBoundingClientRect();
+    const k = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
+    const overlap = (p.bottom - c.top) / k + 3;
+    if (overlap > 0) pill.style.bottom = (parseFloat(getComputedStyle(pill).bottom) + overlap) + 'px';
+  }
+
   function buildMap(state){
     const el = $('.iss-map');
     if (!state || !el || typeof TRMNLMaps === 'undefined' || typeof maplibregl === 'undefined') return;
@@ -344,8 +368,10 @@
       };
       map.on('load', placeCraft);
       map.on('moveend', placeCraft);
+      map.on('load', () => clearCredit(el, $('.iss-pill')));
       return map;
     });
+    clearCredit(el, $('.iss-pill'));
   }
 
   // Responsive Handler. Measures and mutates ROOT, never the first .layout in

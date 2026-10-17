@@ -195,7 +195,7 @@ async function runCase(c) {
     const fails = [], notes = [];
     const roots = [...document.querySelectorAll(".iss")];
     if (roots.length !== copies) fails.push(`plugin copies ${roots.length} != ${copies}`);
-    const rects = [];
+    const rects = [], sizesAll = [];
     const hit = (a, b) => a && b && a.width > 0 && b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     for (const root of roots) {
       const el = root.querySelector(".iss-map");
@@ -208,6 +208,27 @@ async function runCase(c) {
       for (const t of root.querySelectorAll(".iss-locname, .iss-text")) {
         if (t.offsetParent && t.scrollWidth > t.clientWidth + 1) notes.push(`pill text cut: "${t.textContent.trim().slice(0, 40)}"`);
       }
+      // The bigger text on the X must still fit: a KPI whose value or label overflows is cut.
+      for (const k of root.querySelectorAll(".iss-kpi")) {
+        if (k.offsetParent && k.scrollWidth > k.clientWidth + 1) fails.push(`KPI cut: "${k.textContent.trim().replace(/\s+/g, " ")}"`);
+      }
+      // Word spacing: every space in the place name, as a share of its font size. A text font's
+      // space is about 0.25 em; the emoji font's, which spread the words apart, is far wider.
+      const loc = root.querySelector(".iss-locname, .iss-text");
+      const sizes = { text: loc ? parseFloat(getComputedStyle(loc).fontSize) : null };
+      const node = loc && loc.firstChild;
+      if (node && node.nodeType === 3) {
+        for (let i = node.data.indexOf(" "); i >= 0; i = node.data.indexOf(" ", i + 1)) {
+          const range = document.createRange();
+          range.setStart(node, i); range.setEnd(node, i + 1);
+          const em = range.getBoundingClientRect().width / (r.width / el.clientWidth) / sizes.text;
+          sizes.space = Math.max(sizes.space || 0, em);
+          if (em > 0.5) { fails.push(`wide space in "${node.data.trim()}" (${em.toFixed(2)} em)`); break; }
+        }
+      }
+      const kv = root.querySelector(".iss-value");
+      if (kv) sizes.kpi = parseFloat(getComputedStyle(kv).fontSize);
+      sizesAll.push(sizes);
       if (!native) continue;
       const m = el.__issMap;
       if (!m || !el.querySelector("canvas")) { fails.push("map not built"); continue; }
@@ -235,7 +256,7 @@ async function runCase(c) {
         if (o && o.offsetParent && hit(a, o.getBoundingClientRect())) fails.push(`map credit covered by the ${name}`);
       }
     }
-    return { fails, notes, rects };
+    return { fails, notes, rects, sizes: sizesAll };
   }, { copies: LAYOUTS[c.view].copies, payload: PAYLOADS[c.payload], native });
   const png = await p.screenshot({ path: path.join(OUT, `${id}.png`) });
   const px = await pixels(p, png, check.rects);
@@ -244,7 +265,7 @@ async function runCase(c) {
     else if (native && (s.inkL === 0 || s.inkR === 0)) check.fails.push(`a side of the map is blank (left ${s.inkL.toFixed(3)}, right ${s.inkR.toFixed(3)})`);
   }
   const fails = [...check.fails, ...errors];
-  results.push({ id, ...c, ok: fails.length === 0, fails, notes: check.notes, map: px });
+  results.push({ id, ...c, ok: fails.length === 0, fails, notes: check.notes, map: px, sizes: check.sizes });
   const m0 = px[0] ? `map mean ${px[0].mean.toFixed(0)}, ink ${(px[0].ink * 100).toFixed(0)}%` : "";
   console.log(`${fails.length ? "FAIL" : "ok  "} ${id}  ${m0}${fails.length ? "  " + fails.join("; ") : ""}`);
   await p.close();
