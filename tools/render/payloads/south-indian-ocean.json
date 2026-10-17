@@ -1,0 +1,14 @@
+{
+  "ts": 1792248023,
+  "lat": -51.475779326774,
+  "lon": 69.492649234874,
+  "alt_km": 433.05211661506,
+  "vel_kmh": 27555.110857379,
+  "place": "",
+  "src": "wheretheiss",
+  "special_event": {
+    "has_event": false,
+    "type": "",
+    "short_info": ""
+  }
+}
