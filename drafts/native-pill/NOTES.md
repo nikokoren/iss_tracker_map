@@ -15,6 +15,12 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   OG 1-bit, OG portrait, X landscape and portrait: compact 32/32, full + half horizontal 48/48.
   Next: full sweep in both load orders, then a mockup for the owner.
 
+- 2026-10-21: mockup sent to the owner (v1.3 next to the draft: full OG, full X long name,
+  quadrant OG event, half vertical X portrait, full OG portrait). Waiting on: bold place name
+  (`font--bold`) or the framework's regular title; event text size (`description` is 12px on the
+  OG, v1.3 was bold uppercase 13 to 16px); OK for the script that places and rotates the icon.
+  Full sweep of the draft (normal and late load order) was running when the mockup went out.
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran
