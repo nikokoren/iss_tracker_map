@@ -112,7 +112,9 @@
     el.pill.classList.toggle('bg--white', !isEvent);
     el.name.classList.toggle('hidden', isEvent);
     el.event.classList.toggle('hidden', !isEvent);
-    if (isEvent) el.event.textContent = state.pill.text;
+    // Event text in capitals, as in v1.3: the framework has no uppercase
+    // class, so the text itself is converted (owner's OK, 2026-10-21, CLAUDE.md).
+    if (isEvent) el.event.textContent = state.pill.text.toUpperCase();
     else el.name.textContent = state.pill.text;
   }
 

@@ -248,7 +248,7 @@ async function runCase(c) {
         const inverted = root.querySelector(".iss-pill--inverted, .iss-mini-pill--event, .iss-pill.inverse, .iss-mini-pill.inverse");
         if (!inverted) fails.push("event pill not shown");
         const t = root.querySelector(".iss-status-text") || root.querySelector(".iss-event") || root.querySelector(".iss-text");
-        if (t.textContent.trim() !== ev.short_info.trim()) fails.push(`event text is "${t.textContent.trim().slice(0, 40)}"`);
+        if (t.textContent.trim().toUpperCase() !== ev.short_info.trim().toUpperCase()) fails.push(`event text is "${t.textContent.trim().slice(0, 40)}"`);
         const box = t.classList.contains("iss-status-text") ? root.querySelector(".iss-status-panel") : inverted;
         if (t.scrollHeight > box.clientHeight + 2 || t.scrollWidth > t.clientWidth + 2) fails.push(`event text cut (${parseFloat(getComputedStyle(t).fontSize)}px)`);
         notes.push(`event text ${parseFloat(getComputedStyle(t).fontSize)}px`);

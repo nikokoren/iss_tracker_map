@@ -28,14 +28,16 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   Value re-fits; the name is the fitted element itself in a left-aligned flex column (no inner
   span). Render check: KPI visibility checked, LATE=2 (classes from the start, layout late), an OG
   2-bit portrait screen. Owner asked: event text in capitals as in v1.3; no uppercase class in
-  plugins.css (0 matches), proposed `toUpperCase()` in the script, waiting for the OK.
+  plugins.css (0 matches); `toUpperCase()` in the script, OK'd by the owner (CLAUDE.md).
 
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran
   off the right edge: the grid goes inside the pill.
 - `title` keeps its box at the column's width while its text overflows, so Fit Value (element box
-  against parent box) never shrank it: the name is an inline span inside the title.
+  against parent box) never shrank it. First fix, an inline span inside the title, left the shrunk
+  text low in a full-height line; now the title is the fitted element itself, an item of a flex
+  column aligned left (full, half horizontal) or centred (compact), so its box is its text's width.
 - `inverse` together with `bg--white` left the text black on a 1-bit screen (white on the X):
   the script swaps the two classes instead of adding `inverse`.
 - Owner, 2026-10-21: keep the rule that hides the KPIs when the plugin is 520px wide or narrower

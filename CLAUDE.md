@@ -22,6 +22,8 @@ Framework docs: https://trmnl.com/framework/docs/3.4 (Markdown at
 - 2026-10-21, owner ("keep that rule"): the full and half horizontal views hide the KPIs when the
   plugin is 520px wide or narrower (the OG in portrait), by script. No native equivalent: see
   `drafts/native-pill/NOTES.md`.
+- 2026-10-21, owner ("OK"): the ISS event text is shown in capitals, as in v1.3, by converting the
+  text in the script (`toUpperCase()`). plugins.css has no uppercase class (0 matches).
 
 ### Workarounds in the code today, not OK'd yet
 

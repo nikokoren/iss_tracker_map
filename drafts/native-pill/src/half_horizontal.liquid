@@ -190,7 +190,9 @@
     el.kpis.classList.toggle('hidden', isEvent || narrow());
     el.statusPanel.classList.toggle('hidden', !isEvent);
     if (isEvent) {
-      el.statusText.textContent = state.pill.eventText;
+      // In capitals, as in v1.3: the framework has no uppercase class, so the
+      // text itself is converted (owner's OK, 2026-10-21, CLAUDE.md).
+      el.statusText.textContent = state.pill.eventText.toUpperCase();
     } else {
       el.alt.textContent = state.pill.kpis.alt;
       el.altUnit.textContent = state.pill.kpis.altUnit;
