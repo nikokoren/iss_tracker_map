@@ -170,5 +170,19 @@
   const state = computeState(RAW_DATA, CONFIG);
   updateView(state);
   whenReady(() => buildMap(state));
+
+  // When the plugin's size changes after load (TRMNL's preview lays it out
+  // late), the framework is asked to run its pass again (window.terminalize,
+  // its public API), so Fit Value fits the place name to the real width; the
+  // framework itself re-runs only on screen class changes.
+  if (typeof ResizeObserver !== 'undefined') {
+    let w = -1, h = -1;
+    new ResizeObserver(() => {
+      if (ROOT.offsetWidth === w && ROOT.offsetHeight === h) return;
+      const first = w < 0;
+      w = ROOT.offsetWidth; h = ROOT.offsetHeight;
+      if (!first && typeof window.terminalize === 'function') window.terminalize();
+    }).observe(ROOT);
+  }
 })();
 </script>

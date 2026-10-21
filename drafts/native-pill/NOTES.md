@@ -21,6 +21,15 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   OG, v1.3 was bold uppercase 13 to 16px); OK for the script that places and rotates the icon.
   Full sweep of the draft (normal and late load order) was running when the mockup went out.
 
+- 2026-10-21: owner's TRMNL preview of the draft (half horizontal, OG 2-bit): KPIs missing, the
+  place name tiny and low in a tall pill. Not reproduced locally (LATE=1 and LATE=2 both showed the
+  KPIs). Changed: the width rule measures on screen as v1.3 does and ignores a width of 0; on a
+  size change the view re-applies it and calls `window.terminalize()` (framework public API) so Fit
+  Value re-fits; the name is the fitted element itself in a left-aligned flex column (no inner
+  span). Render check: KPI visibility checked, LATE=2 (classes from the start, layout late), an OG
+  2-bit portrait screen. Owner asked: event text in capitals as in v1.3; no uppercase class in
+  plugins.css (0 matches), proposed `toUpperCase()` in the script, waiting for the OK.
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran

@@ -28,7 +28,9 @@ const CACHE = path.join(here, ".cache");
 const CHROME = process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 const FW_CSS = "https://trmnl.com/css/latest/plugins.css";
 const FW_JS = "https://trmnl.com/js/latest/plugins.js";
-const LATE = !!process.env.LATE;
+// LATE=1: scripts, framework and size classes late; LATE=2: the size classes there from the start,
+// only the layout late (display:none for 600 ms), so no class change announces it.
+const LATE = process.env.LATE || "";
 
 function renderLiquid(view, ctx) {
   const r = spawnSync("ruby", [path.join(here, "render.rb"), SRC, view], { input: JSON.stringify(ctx), encoding: "utf8" });
@@ -50,6 +52,7 @@ const DEVICES = {
   og_1bit: { cls: "screen--og screen--md screen--1bit", w: 800, h: 480 },
   og_2bit: { cls: "screen--og screen--md screen--2bit", w: 800, h: 480 },
   og_port: { cls: "screen--og screen--md screen--1bit screen--portrait", w: 480, h: 800 },
+  og_port_2bit: { cls: "screen--og screen--md screen--2bit screen--portrait", w: 480, h: 800 },
   // The framework scales the X's 1040×780 CSS layout by 1.8 itself, so the page is 1872×1404.
   x_land: { cls: "screen--v2 screen--lg screen--density-2x screen--4bit", w: 1872, h: 1404 },
   x_port: { cls: "screen--v2 screen--lg screen--density-2x screen--4bit screen--portrait", w: 1404, h: 1872 },
@@ -69,7 +72,9 @@ function page(view, device, payload, settings) {
   // external scripts (MapLibre) load only after its inline script has run, as when markup is
   // inserted with innerHTML and its <script src> tags are re-created; the framework script comes
   // 300 ms later, and the screen's size classes 600 ms later, as in TRMNL's preview (Downstream
-  // DESIGN_PHILOSOPHY: "TRMNL's preview adds them after load").
+  // DESIGN_PHILOSOPHY: "TRMNL's preview adds them after load"). Until then the screen is not laid
+  // out (display:none, every width 0): the owner's preview showed the KPIs gone and the place name
+  // tiny, 2026-10-21.
   if (LATE) body = body.replace(/<script src="([^"]+)"><\/script>/g, (_, src) =>
     `<script>(function(){var s=document.createElement("script");s.src=${JSON.stringify(src)};document.head.appendChild(s);})();</script>`);
   const one = `<div class="view view--${view}">${body}</div>`;
@@ -78,10 +83,10 @@ function page(view, device, payload, settings) {
   const cls = DEVICES[device].cls;
   if (LATE) return `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="${FW_CSS}"></head>
-<body class="environment trmnl"><div class="screen">${inner}</div>
+<body class="environment trmnl"><div class="screen${LATE === "2" ? " " + cls : ""}" style="display:none">${inner}</div>
 <script>
 setTimeout(function(){var s=document.createElement("script");s.src=${JSON.stringify(FW_JS)};document.head.appendChild(s);}, 300);
-setTimeout(function(){document.querySelector(".screen").className="screen ${cls}";}, 600);
+setTimeout(function(){var e=document.querySelector(".screen");e.className="screen ${cls}";e.style.display="";}, 600);
 </script></body></html>`;
   return `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="${FW_CSS}"><script src="${FW_JS}"></script></head>
@@ -250,6 +255,14 @@ async function runCase(c) {
         const pr = inverted && inverted.getBoundingClientRect();
         if (pr && pr.top < r.top) fails.push("event pill taller than the map");
         if (pr && hit(pr, root.querySelector(".iss-craft").getBoundingClientRect())) notes.push("event pill covers the station icon");
+      }
+      // The KPIs (full, half horizontal): shown when the plugin is wider than 520 CSS px and no
+      // event is on, hidden otherwise (the owner's rule).
+      const kpis = root.querySelector(".iss-kpis");
+      if (kpis) {
+        const shown = kpis.getClientRects().length > 0;
+        const want = root.offsetWidth > 520 && !(ev && ev.has_event);
+        if (shown !== want) fails.push(`KPIs ${shown ? "shown" : "hidden"} at ${root.offsetWidth}px${ev && ev.has_event ? " with an event" : ""}`);
       }
       // The bigger text on the X must still fit: a KPI whose value or label overflows is cut.
       for (const k of root.querySelectorAll(".iss-kpi")) {

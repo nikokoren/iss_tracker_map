@@ -17,8 +17,8 @@
 
   <div class="iss-pill absolute bottom--4 left--4 right--4 z--2 bg--white outline rounded--medium p--2 lg:p--3">
    <div class="grid grid--cols-2 gap--base">
-    <div class="flex flex--row flex--center-y">
-      <span class="title lg:title--large w--full"><span class="iss-loc" data-value-fit="true">Passing by, wave 👋</span></span>
+    <div class="flex flex--col flex--left flex--center-y">
+      <span class="iss-loc title lg:title--large" data-value-fit="true">Passing by, wave 👋</span>
     </div>
 
     <div class="iss-kpis grid grid--cols-3 gap--small">
@@ -149,9 +149,9 @@
 
   // --- 4. THE VIEW ---
   // Text and framework classes only: hidden for what is not shown, inverse for
-  // an event. The place name is fitted by the framework (data-value-fit); it
-  // sits in an inline span because Fit Value compares the element's own box
-  // with its parent's, and a title's box is always its column's width. An
+  // an event. The place name is fitted by the framework (data-value-fit). It
+  // is an item of a flex column aligned left, so its box is as wide as its
+  // text: Fit Value compares the element's own box with its parent's. An
   // event's text wraps, and the pill grows with it.
   function updateView(state) {
     const el = {
@@ -203,8 +203,9 @@
   // Location only when the plugin is 520px wide or narrower (the OG in
   // portrait is 480px): the KPIs are left out. Script, OK'd by the owner
   // 2026-10-21 (CLAUDE.md); md:portrait:hidden would also hide them on the X
-  // in portrait, which is 780px wide.
-  const narrow = () => ROOT.offsetWidth <= 520;
+  // in portrait, which is 780px wide. Measured on screen, as v1.3 does, and a
+  // width of 0 (not laid out yet) counts as not narrow.
+  const narrow = () => { const w = ROOT.getBoundingClientRect().width; return w > 0 && w <= 520; };
 
   // --- 5. MAP ---
   // TRMNL's own map (TRMNLMaps on MapLibre): the framework draws and dithers
@@ -261,9 +262,21 @@
   updateView(state);
   whenReady(() => buildMap(state));
 
-  // Again when the size or the screen's classes change (TRMNL's preview sets
-  // the size classes after load).
-  window.addEventListener('resize', () => requestAnimationFrame(() => updateView(state)));
+  // Again when the plugin's size or the screen's classes change: TRMNL's
+  // preview lays the plugin out and sets the size classes after load. On a
+  // size change the framework is asked to run its pass again
+  // (window.terminalize, its public API), so Fit Value fits the place name to
+  // the real width; the framework itself re-runs only on class changes.
+  if (typeof ResizeObserver !== 'undefined') {
+    let w = -1, h = -1;
+    new ResizeObserver(() => {
+      if (ROOT.offsetWidth === w && ROOT.offsetHeight === h) return;
+      const first = w < 0;
+      w = ROOT.offsetWidth; h = ROOT.offsetHeight;
+      updateView(state);
+      if (!first && typeof window.terminalize === 'function') window.terminalize();
+    }).observe(ROOT);
+  }
   const screenEl = ROOT.closest('.screen');
   if (screenEl && typeof MutationObserver !== 'undefined') {
     new MutationObserver(() => updateView(state)).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
