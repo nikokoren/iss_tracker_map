@@ -1,0 +1,272 @@
+{%- comment -%}
+  full.liquid — ISS Tracker Map (native pill draft)
+
+  Built from TRMNL Framework 3.4 classes only: no <style> block, no own fonts
+  or sizes (CLAUDE.md, design rule). The script sets text, toggles framework
+  classes (hidden, inverse), builds the map, and places the station icon.
+
+  SCOPING CONTRACT: every DOM lookup goes through ROOT, this instance's own
+  subtree, never through document. Run `npm run lint` before publishing.
+{%- endcomment -%}
+
+<div class="layout iss">
+ <div class="relative w--full h--full">
+  <div class="iss-map map"></div>
+  <span class="iss-timestamp absolute top--2 left--2 z--2 px--1 bg--white rounded--xsmall label label--small lg:label--base">ISS @ —</span>
+  <div class="iss-craft absolute z--1"><img class="iss-icon w--14 h--14" alt="ISS" src="" /></div>
+
+  <div class="iss-pill absolute bottom--4 left--4 right--4 z--2 bg--white outline rounded--medium p--2 lg:p--3">
+   <div class="grid grid--cols-2 gap--base">
+    <div class="flex flex--row flex--center-y">
+      <span class="title lg:title--large w--full"><span class="iss-loc" data-value-fit="true">Passing by, wave 👋</span></span>
+    </div>
+
+    <div class="iss-kpis grid grid--cols-3 gap--small">
+      <div class="item item--emphasis-1">
+        <div class="meta"></div>
+        <div class="content">
+          <div class="flex flex--row flex--bottom gap--xsmall"><span class="iss-alt value value--xxsmall value--tnums lg:value--xsmall">—</span><span class="iss-alt-unit label label--small lg:label--base">km</span></div>
+          <span class="label label--small lg:label--base">Altitude</span>
+        </div>
+      </div>
+      <div class="item item--emphasis-1">
+        <div class="meta"></div>
+        <div class="content">
+          <div class="flex flex--row flex--bottom gap--xsmall"><span class="iss-vel value value--xxsmall value--tnums lg:value--xsmall">—</span><span class="iss-vel-unit label label--small lg:label--base">km/s</span></div>
+          <span class="label label--small lg:label--base">Velocity</span>
+        </div>
+      </div>
+      <div class="item item--emphasis-1">
+        <div class="meta"></div>
+        <div class="content">
+          <span class="iss-orbit value value--xxsmall value--tnums lg:value--xsmall">—</span>
+          <span class="label label--small lg:label--base">Orbits today</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="iss-status-panel hidden flex flex--row flex--center-y">
+      <span class="iss-status-text description lg:description--large">—</span>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+<link rel="stylesheet" href="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.css">
+<script src="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.js"></script>
+<script>
+(() => {
+  // --- 0. THIS INSTANCE'S ROOT ---
+  // Every lookup below goes through ROOT. In a mashup document.querySelector
+  // returns whichever plugin comes first in the DOM.
+  const SELF = document.currentScript;
+  const ROOT =
+    (SELF && SELF.closest('.iss')) ||
+    (SELF && SELF.parentElement && SELF.parentElement.querySelector('.iss')) ||
+    document.querySelector('.iss');
+  if (!ROOT) return;
+  const $ = (sel) => ROOT.querySelector(sel);
+
+  // --- 1. CONSTANTS & CONFIG ---
+  const CONFIG = {
+    showTs: "{{ trmnl.plugin_settings.custom_fields_values.show_timestamp | default: 'Yes' }}" !== 'false',
+    timeFormat: "{{ trmnl.plugin_settings.custom_fields_values.time_format | default: 'Auto' }}".toLowerCase(),
+    units: "{{ trmnl.plugin_settings.custom_fields_values.units | default: 'Metric' }}".toLowerCase(),
+    enableRotation: "{{ trmnl.plugin_settings.custom_fields_values.random_rotation | default: 'true' }}" !== 'false',
+    userTz: "{{ trmnl.user.time_zone_iana | default: 'UTC' }}",
+    urls: {
+      iss: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss.png",
+      eva: "https://raw.githubusercontent.com/nikokoren/mission_control/refs/heads/main/rockets/iss_eva.png"
+    }
+  };
+
+  // --- 2. INPUT DATA (Raw) ---
+  const firstNonEmpty = (...xs) => { for (const x of xs){ const s=String(x??'').trim(); if(s) return s; } return ''; };
+  const RAW_DATA = {
+    lat: firstNonEmpty('{{ lat }}', '{{ IDX_0.lat }}'),
+    lon: firstNonEmpty('{{ lon }}', '{{ IDX_0.lon }}'),
+    alt: firstNonEmpty('{{ alt_km }}', '{{ IDX_0.alt_km }}'),
+    vel: firstNonEmpty('{{ vel_kmh }}', '{{ IDX_0.vel_kmh }}'),
+    ts:  firstNonEmpty('{{ ts }}', '{{ IDX_0.ts }}'),
+    place: firstNonEmpty('{{ place }}', '{{ IDX_0.place }}'),
+    short_info: '{% if trmnl.plugin_settings.custom_fields_values.show_iss_events == "true" %}{{ special_event.short_info | default: "" }}{% endif %}',
+    event_type: '{{ special_event.type | default: "" }}'
+  };
+
+  // --- 3. THE BRAIN (Logic & Math) ---
+  function computeState(raw, cfg) {
+    const lat = Number(raw.lat);
+    const lon = Number(raw.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const tsDate = new Date(Number(raw.ts) > 1e12 ? Number(raw.ts) : Number(raw.ts) * 1000);
+    const info = raw.short_info.trim();
+    const eventType = raw.event_type.trim();
+    const hasActiveEvent = info.length > 0;
+
+    const altRaw = Number(raw.alt);
+    const velRaw = Number(raw.vel);
+    const isImperial = cfg.units === 'imperial';
+
+    const displayAlt = isImperial ? (altRaw * 0.621371).toFixed(1) : altRaw.toFixed(1);
+    const displayVel = isImperial
+      ? ((velRaw * 0.621371) / 3600).toFixed(2)
+      : (velRaw / 3600).toFixed(2);
+
+    const p = new Intl.DateTimeFormat('en-US',{ timeZone: cfg.userTz, hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(tsDate).reduce((a,v)=>(a[v.type]=v.value,a),{});
+    const secsToday = (+p.hour)*3600 + (+p.minute)*60 + (+p.second);
+    const orbitCount = Math.max(1, Math.floor(secsToday / (92.68*60)) + 1);
+
+    const resolveHour12 = (tz, pref) => pref==='12h' ? true : (pref==='24h' ? false : !(tz||'').toLowerCase().startsWith('europe/'));
+    const timeLabel = new Intl.DateTimeFormat('en-US', {
+      timeZone: cfg.userTz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: resolveHour12(cfg.userTz, cfg.timeFormat)
+    }).format(tsDate);
+
+    const isEVA = eventType === "EVA" && hasActiveEvent;
+
+    return {
+      isValid: true,
+      map: { lat, lon },
+      icon: {
+        url: isEVA ? cfg.urls.eva : cfg.urls.iss,
+        rotation: cfg.enableRotation ? Math.floor(Math.random() * 360) : 0
+      },
+      pill: {
+        mode: hasActiveEvent ? 'EVENT' : 'KPI',
+        locationText: (raw.place || '').trim() || `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`,
+        eventText: info,
+        kpis: {
+          alt: displayAlt,
+          altUnit: isImperial ? 'mi' : 'km',
+          vel: displayVel,
+          velUnit: isImperial ? 'mi/s' : 'km/s',
+          orbit: orbitCount
+        }
+      },
+      timestamp: cfg.showTs ? `ISS @ ${timeLabel}` : null
+    };
+  }
+
+  // --- 4. THE VIEW ---
+  // Text and framework classes only: hidden for what is not shown, inverse for
+  // an event. The place name is fitted by the framework (data-value-fit); it
+  // sits in an inline span because Fit Value compares the element's own box
+  // with its parent's, and a title's box is always its column's width. An
+  // event's text wraps, and the pill grows with it.
+  function updateView(state) {
+    const el = {
+      loc: $('.iss-loc'),
+      kpis: $('.iss-kpis'),
+      statusPanel: $('.iss-status-panel'),
+      statusText: $('.iss-status-text'),
+      pill: $('.iss-pill'),
+      icon: $('.iss-icon'),
+      ts: $('.iss-timestamp'),
+      alt: $('.iss-alt'),
+      vel: $('.iss-vel'),
+      orbit: $('.iss-orbit'),
+      altUnit: $('.iss-alt-unit'),
+      velUnit: $('.iss-vel-unit')
+    };
+
+    if (!state || !state.isValid) {
+      el.loc.textContent = "—";
+      return;
+    }
+
+    if (el.icon.src !== state.icon.url) el.icon.src = state.icon.url;
+    el.icon.style.transform = state.icon.rotation ? `rotate(${state.icon.rotation}deg)` : '';
+
+    el.ts.classList.toggle('hidden', !state.timestamp);
+    if (state.timestamp) el.ts.textContent = state.timestamp;
+
+    el.loc.textContent = state.pill.locationText;
+
+    const isEvent = state.pill.mode === 'EVENT';
+    // bg--white and inverse are swapped, not combined: with both, a 1-bit
+    // screen drew black text on the black pill.
+    el.pill.classList.toggle('inverse', isEvent);
+    el.pill.classList.toggle('bg--white', !isEvent);
+    el.kpis.classList.toggle('hidden', isEvent || narrow());
+    el.statusPanel.classList.toggle('hidden', !isEvent);
+    if (isEvent) {
+      el.statusText.textContent = state.pill.eventText;
+    } else {
+      el.alt.textContent = state.pill.kpis.alt;
+      el.altUnit.textContent = state.pill.kpis.altUnit;
+      el.vel.textContent = state.pill.kpis.vel;
+      el.velUnit.textContent = state.pill.kpis.velUnit;
+      el.orbit.textContent = state.pill.kpis.orbit;
+    }
+  }
+
+  // Location only when the plugin is 520px wide or narrower (the OG in
+  // portrait is 480px): the KPIs are left out. Script, OK'd by the owner
+  // 2026-10-21 (CLAUDE.md); md:portrait:hidden would also hide them on the X
+  // in portrait, which is 780px wide.
+  const narrow = () => ROOT.offsetWidth <= 520;
+
+  // --- 5. MAP ---
+  // TRMNL's own map (TRMNLMaps on MapLibre): the framework draws and dithers
+  // it for each panel's bit depth and writes the OpenStreetMap credit into it.
+  // watch() is given the element, not an id, so two instances in one mashup
+  // don't collide; it rebuilds the map when the device, scale or mode changes.
+  // Zoom 2 shows what Leaflet's zoom 3 did (512px tiles against 256px); whole
+  // numbers only, as the framework dithers only at an integer zoom.
+  // The map waits until MapLibre and the framework are loaded and the map has
+  // a size, checking every 50 ms for up to 10 s, as Downstream does. A host
+  // can run this script before either has loaded (markup inserted with its
+  // <script src> tags re-created loads them after this one; the map then
+  // stayed empty), and TRMNL's preview sets the screen's size classes after
+  // load.
+  function whenReady(cb){
+    let tries = 0;
+    (function attempt(){
+      const el = $('.iss-map');
+      if (typeof TRMNLMaps !== 'undefined' && typeof maplibregl !== 'undefined' &&
+          el && el.clientWidth && el.clientHeight) return cb();
+      if (++tries <= 200) setTimeout(attempt, 50);
+    })();
+  }
+
+  function buildMap(state){
+    const el = $('.iss-map');
+    if (!state || !el || typeof TRMNLMaps === 'undefined' || typeof maplibregl === 'undefined') return;
+    TRMNLMaps.watch(el, () => {
+      const opts = TRMNLMaps.options({ el, preset: 'outline', center: [state.map.lon, state.map.lat], zoom: 2 });
+      // The station crosses the 180th meridian every orbit; without world
+      // copies the far side of the line would be blank.
+      opts.renderWorldCopies = true;
+      const map = new maplibregl.Map(opts);
+      el.__issMap = map; // read by tools/render/render-check.mjs
+      // The icon goes where the map draws the station, centred on it. Not the
+      // map's centre: MapLibre shows nothing beyond the poles, so on a map
+      // about as tall as the world it moves the centre toward the equator.
+      // (Script placement: the framework has no way to put custom art on a
+      // map. Awaiting the owner's OK, CLAUDE.md.)
+      const craft = $('.iss-craft');
+      const placeCraft = () => {
+        const p = map.project([state.map.lon, state.map.lat]);
+        craft.style.left = (el.offsetLeft + p.x - craft.offsetWidth / 2) + 'px';
+        craft.style.top = (el.offsetTop + p.y - craft.offsetHeight / 2) + 'px';
+      };
+      map.on('load', placeCraft);
+      map.on('moveend', placeCraft);
+      return map;
+    });
+  }
+
+  // --- 6. BOOT ---
+  const state = computeState(RAW_DATA, CONFIG);
+  updateView(state);
+  whenReady(() => buildMap(state));
+
+  // Again when the size or the screen's classes change (TRMNL's preview sets
+  // the size classes after load).
+  window.addEventListener('resize', () => requestAnimationFrame(() => updateView(state)));
+  const screenEl = ROOT.closest('.screen');
+  if (screenEl && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(() => updateView(state)).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+  }
+})();
+</script>

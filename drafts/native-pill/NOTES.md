@@ -6,7 +6,35 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
 
 ## Status
 
-- 2026-10-21: docs read, plan below, draft views being written. Not rendered yet.
+- 2026-10-21: docs read, plan below.
+- 2026-10-21: `src/full.liquid` drafted, no `<style>` block. Renders full view, OG 1-bit, OG
+  portrait, X landscape and portrait, Manitoba / Clayton / Cygnus undocking: 24/24. Next: the
+  compact views (quadrant, half vertical), then half horizontal (copy of full), full sweep, mockup
+  for the owner.
+- 2026-10-21: all four views drafted. Long name, longest event (and Manitoba for the wide views),
+  OG 1-bit, OG portrait, X landscape and portrait: compact 32/32, full + half horizontal 48/48.
+  Next: full sweep in both load orders, then a mockup for the owner.
+
+## Findings while drafting
+
+- `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran
+  off the right edge: the grid goes inside the pill.
+- `title` keeps its box at the column's width while its text overflows, so Fit Value (element box
+  against parent box) never shrank it: the name is an inline span inside the title.
+- `inverse` together with `bg--white` left the text black on a 1-bit screen (white on the X):
+  the script swaps the two classes instead of adding `inverse`.
+- Owner, 2026-10-21: keep the rule that hides the KPIs when the plugin is 520px wide or narrower
+  (the OG in portrait is 480px). Native `md:portrait:hidden` also hides them on the X in portrait
+  (780px; size prefixes apply upward) and `lg:portrait:grid` loses to it (same specificity, later
+  in plugins.css), so it stays a script that toggles `hidden`. OK'd, recorded in CLAUDE.md.
+  The compact views never show KPIs (checked on main), so the rule has nothing to do there.
+- Render check: an OG portrait screen (`og_port`) added; it was missing.
+- In the quadrant on the X the layout is padded (10 CSS px) and the map sits inside that padding,
+  while absolute offsets measure from the layout's outer edge: `bottom--4` left the pill 6px above
+  the map's edge, over the credit. Map and overlays now sit in one `relative w--full h--full` box.
+- In the compact views the name as an inline span inside a full-width `title` wrapped onto two
+  lines on the X and was not shrunk; as a centred item of `flex flex--col flex--center-x` with
+  `data-value-fit` on the title itself (the docs' own pattern) it fits.
 
 ## Framework 3.4 facts used (docs re-fetched 2026-10-21, trmnl.com/framework/docs/3.4/<page>.md)
 

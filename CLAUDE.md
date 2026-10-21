@@ -17,7 +17,13 @@ explicitly. Record each OK here, dated.
 Framework docs: https://trmnl.com/framework/docs/3.4 (Markdown at
 `<page>.md`). Re-fetch before relying on them.
 
-### Workarounds in the code today, none OK'd yet
+### OK'd workarounds
+
+- 2026-10-21, owner ("keep that rule"): the full and half horizontal views hide the KPIs when the
+  plugin is 520px wide or narrower (the OG in portrait), by script. No native equivalent: see
+  `drafts/native-pill/NOTES.md`.
+
+### Workarounds in the code today, not OK'd yet
 
 Found 2026-10-18. Each needs a native replacement or the owner's OK.
 

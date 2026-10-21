@@ -3,4 +3,4 @@ node_modules/
 preview/
 *.log
 .DS_Store
-tools/render/out/
+tools/render/out*/

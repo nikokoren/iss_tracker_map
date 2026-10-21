@@ -49,6 +49,7 @@ const SETTINGS = {
 const DEVICES = {
   og_1bit: { cls: "screen--og screen--md screen--1bit", w: 800, h: 480 },
   og_2bit: { cls: "screen--og screen--md screen--2bit", w: 800, h: 480 },
+  og_port: { cls: "screen--og screen--md screen--1bit screen--portrait", w: 480, h: 800 },
   // The framework scales the X's 1040×780 CSS layout by 1.8 itself, so the page is 1872×1404.
   x_land: { cls: "screen--v2 screen--lg screen--density-2x screen--4bit", w: 1872, h: 1404 },
   x_port: { cls: "screen--v2 screen--lg screen--density-2x screen--4bit screen--portrait", w: 1404, h: 1872 },
@@ -97,8 +98,8 @@ await new Promise((r) => server.listen(0, r));
 const base = `http://127.0.0.1:${server.address().port}`;
 
 const cases = [];
-for (const view of (process.env.VIEW ? [process.env.VIEW] : Object.keys(LAYOUTS)))
-  for (const device of (process.env.DEVICE ? [process.env.DEVICE] : Object.keys(DEVICES)))
+for (const view of (process.env.VIEW ? process.env.VIEW.split(",") : Object.keys(LAYOUTS)))
+  for (const device of (process.env.DEVICE ? process.env.DEVICE.split(",") : Object.keys(DEVICES)))
     for (const payload of (process.env.ONLY ? process.env.ONLY.split(",") : Object.keys(PAYLOADS)))
       for (const settings of Object.keys(SETTINGS)) cases.push({ view, device, payload, settings });
 
@@ -208,6 +209,7 @@ async function runCase(c) {
     await p.waitForFunction(() => [...document.querySelectorAll(".leaflet-tile")].every((t) => t.complete), null, { timeout: 20000 }).catch(() => {});
     await p.waitForTimeout(500);
   }
+  if (process.env.PROBE) console.log(await p.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => { const b = e.getBoundingClientRect(), cs = getComputedStyle(e); return `   PROBE ${e.className} | ${Math.round(b.width)}x${Math.round(b.height)} | style="${e.getAttribute("style") || ""}" | font ${cs.fontSize} ${cs.fontFamily.slice(0, 30)} | color ${cs.color} bg ${cs.backgroundColor} | attrs ${[...e.attributes].map((a) => a.name).filter((n) => n.startsWith("data-")).join(",")}`; }).join("\n"), process.env.PROBE));
   if (process.env.DEBUG) console.log(await p.evaluate(() => [".screen", ".view", ".iss", ".iss-map", ".iss-map > *", ".maplibregl-canvas"]
     .flatMap((s) => [...document.querySelectorAll(s)].map((e) => { const b = e.getBoundingClientRect(); return `   ${s} "${e.className}" ${b.left | 0},${b.top | 0} ${b.width | 0}x${b.height | 0} client ${e.clientWidth}x${e.clientHeight}`; })).join("\n")));
   const check = await p.evaluate(({ copies, payload, native }) => {
@@ -238,9 +240,9 @@ async function runCase(c) {
       // An ISS event: the inverted pill shows the payload's text in full.
       const ev = payload.special_event;
       if (ev && ev.has_event) {
-        const inverted = root.querySelector(".iss-pill--inverted, .iss-mini-pill--event");
+        const inverted = root.querySelector(".iss-pill--inverted, .iss-mini-pill--event, .iss-pill.inverse, .iss-mini-pill.inverse");
         if (!inverted) fails.push("event pill not shown");
-        const t = root.querySelector(".iss-status-text") || root.querySelector(".iss-text");
+        const t = root.querySelector(".iss-status-text") || root.querySelector(".iss-event") || root.querySelector(".iss-text");
         if (t.textContent.trim() !== ev.short_info.trim()) fails.push(`event text is "${t.textContent.trim().slice(0, 40)}"`);
         const box = t.classList.contains("iss-status-text") ? root.querySelector(".iss-status-panel") : inverted;
         if (t.scrollHeight > box.clientHeight + 2 || t.scrollWidth > t.clientWidth + 2) fails.push(`event text cut (${parseFloat(getComputedStyle(t).fontSize)}px)`);
