@@ -17,7 +17,7 @@
 
   <div class="iss-pill absolute bottom--4 left--4 right--4 z--2 bg--white outline rounded--medium p--2 lg:p--3">
    <div class="grid grid--cols-2 gap--base">
-    <div class="iss-namecell flex flex--col flex--left flex--center-y">
+    <div class="iss-namecell flex flex--col flex--center-x flex--center-y">
       <span class="iss-loc title title--large lg:title--xlarge text--bold" data-value-fit="true">Passing by, wave 👋</span>
     </div>
 
@@ -26,27 +26,27 @@
         <div class="meta"></div>
         <div class="content">
           <div class="flex flex--row flex--bottom gap--xsmall"><span class="iss-alt value value--xsmall value--tnums lg:value--small">—</span><span class="iss-alt-unit label lg:label--large">km</span></div>
-          <span class="label lg:label--large">Altitude</span>
+          <span class="label label--small lg:label--large">Altitude</span>
         </div>
       </div>
       <div class="item item--emphasis-1">
         <div class="meta"></div>
         <div class="content">
           <div class="flex flex--row flex--bottom gap--xsmall"><span class="iss-vel value value--xsmall value--tnums lg:value--small">—</span><span class="iss-vel-unit label lg:label--large">km/s</span></div>
-          <span class="label lg:label--large">Velocity</span>
+          <span class="label label--small lg:label--large">Velocity</span>
         </div>
       </div>
       <div class="item item--emphasis-1">
         <div class="meta"></div>
         <div class="content">
           <span class="iss-orbit value value--xsmall value--tnums lg:value--small">—</span>
-          <span class="label lg:label--large">Orbits today</span>
+          <span class="label label--small lg:label--large">Orbits today</span>
         </div>
       </div>
     </div>
 
     <div class="iss-status-panel hidden flex flex--row flex--center-y">
-      <span class="iss-status-text title text--bold">—</span>
+      <span class="iss-status-text title title--small text--bold">—</span>
     </div>
    </div>
   </div>
@@ -150,7 +150,7 @@
   // --- 4. THE VIEW ---
   // Text and framework classes only: hidden for what is not shown, inverse for
   // an event. The place name is fitted by the framework (data-value-fit). It
-  // is an item of a flex column aligned left, so its box is as wide as its
+  // is a centred item of a flex column, so its box is as wide as its
   // text: Fit Value compares the element's own box with its parent's. An
   // event's text wraps, and the pill grows with it.
   function updateView(state) {

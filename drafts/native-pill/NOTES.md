@@ -45,6 +45,11 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   8px: `md:portrait:title--small lg:title--large lg:portrait:title--large` (the lg: rules come
   later in plugins.css, so the X keeps its size); it now fits at 8px.
 
+- 2026-10-22: owner: KPI labels back to `label--small` on the OG (`lg:label--large` kept), event
+  text back to `title--small` everywhere, place name centred in its box in every view. Render
+  check: fails when a pill covers more than half of the station icon (the quadrant's event pill
+  hid it at `title` size).
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran

@@ -228,6 +228,15 @@ async function runCase(c) {
       const r = el.getBoundingClientRect();
       rects.push({ left: r.left, top: r.top, width: r.width, height: r.height });
       const icon = root.querySelector(".iss-icon");
+      // The station must stay visible: fail when a pill covers more than half of the icon's box.
+      const ib = root.querySelector(".iss-craft").getBoundingClientRect();
+      for (const pill of root.querySelectorAll(".iss-pill, .iss-mini-pill")) {
+        if (!pill.offsetParent) continue;
+        const pb = pill.getBoundingClientRect();
+        const ox = Math.max(0, Math.min(ib.right, pb.right) - Math.max(ib.left, pb.left));
+        const oy = Math.max(0, Math.min(ib.bottom, pb.bottom) - Math.max(ib.top, pb.top));
+        if (ib.width && ox * oy > 0.5 * ib.width * ib.height) fails.push(`pill covers ${Math.round(100 * ox * oy / (ib.width * ib.height))}% of the station icon`);
+      }
       if (!icon.complete || !icon.naturalWidth) fails.push("station icon not loaded");
       // The place name, fitted by the framework (data-value-fit): it must lie inside the
       // nearest box that clips it (overflow not visible; its padding box). Its fitted size goes
