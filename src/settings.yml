@@ -10,7 +10,12 @@ name: ISS Tracker Map
 description: >-
   Your TRMNL now tracks the International Space Station in (almost) real-time,
   plotting its precise location on a beautiful world map.
-version: 1.2.0
+version: 1.3.0
+
+# Release notes as shown in "About this plugin" (the earlier ones are on the
+# recipe page).
+# v1.3 - 2026-10-17 Now using TRMNL's native map, for much better viewing on
+#   the TRMNL X. Plus some small tweaks to how place names are shown.
 
 strategy: polling
 polling_url: https://iss-events.5g5wqr7kzx-466.workers.dev

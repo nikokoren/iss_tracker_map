@@ -1,0 +1,12 @@
+{
+  "name": "iss-tracker-map-render-check",
+  "private": true,
+  "type": "module",
+  "description": "Renders the plugin's views with captured payloads in Chromium against TRMNL's framework.",
+  "scripts": {
+    "check": "NODE_USE_ENV_PROXY=1 node render-check.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.56"
+  }
+}

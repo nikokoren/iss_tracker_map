@@ -1,0 +1,14 @@
+{
+  "ts": 1792250723,
+  "lat": 50.488512801848,
+  "lon": -130.7097878139,
+  "alt_km": 430.07195364003,
+  "vel_kmh": 27566.394829299,
+  "place": "North Pacific",
+  "src": "wheretheiss",
+  "special_event": {
+    "has_event": true,
+    "type": "Docking",
+    "short_info": "Docking confirmed: Cargo Dragon C211 attached to Harmony zenith 12m ago."
+  }
+}

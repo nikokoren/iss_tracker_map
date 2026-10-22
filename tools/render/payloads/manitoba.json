@@ -1,0 +1,14 @@
+{
+  "ts": 1792251023,
+  "lat": 51.016765377845,
+  "lon": -101.25419787545,
+  "alt_km": 430.36206483985,
+  "vel_kmh": 27565.6456966,
+  "place": "Manitoba, Canada",
+  "src": "wheretheiss",
+  "special_event": {
+    "has_event": false,
+    "type": "",
+    "short_info": ""
+  }
+}
