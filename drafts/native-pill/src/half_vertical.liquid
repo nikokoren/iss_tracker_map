@@ -20,8 +20,8 @@
 
   <div class="iss-pill absolute bottom--4 left--2 right--2 z--2 bg--white outline rounded--medium p--2">
    <div class="flex flex--col flex--center-x">
-    <span class="iss-name title title--small lg:title--base" data-value-fit="true">Loading...</span>
-    <span class="iss-event description lg:description--large hidden">—</span>
+    <span class="iss-name title title--small lg:title--base text--bold" data-value-fit="true">Loading...</span>
+    <span class="iss-event title title--small text--bold hidden">—</span>
    </div>
   </div>
  </div>
@@ -155,7 +155,7 @@
       // map's centre: MapLibre shows nothing beyond the poles, so on a map
       // about as tall as the world it moves the centre toward the equator.
       // (Script placement: the framework has no way to put custom art on a
-      // map. Awaiting the owner's OK, CLAUDE.md.)
+      // map. OK'd by the owner 2026-10-22, CLAUDE.md.)
       const craft = $('.iss-craft');
       const placeCraft = () => {
         const p = map.project([state.map.lon, state.map.lat]);

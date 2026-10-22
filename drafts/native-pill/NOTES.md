@@ -30,6 +30,10 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   2-bit portrait screen. Owner asked: event text in capitals as in v1.3; no uppercase class in
   plugins.css (0 matches); `toUpperCase()` in the script, OK'd by the owner (CLAUDE.md).
 
+- 2026-10-22: owner's choices: place name bold (`text--bold`; `font--bold` is a deprecated alias),
+  event text `title title--small text--bold`, icon logic kept (OK in CLAUDE.md). Note from the
+  docs: with the Classic font bundle `text--bold` does nothing on low-density screens (one weight).
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran

@@ -24,6 +24,12 @@ Framework docs: https://trmnl.com/framework/docs/3.4 (Markdown at
   `drafts/native-pill/NOTES.md`.
 - 2026-10-21, owner ("OK"): the ISS event text is shown in capitals, as in v1.3, by converting the
   text in the script (`toUpperCase()`). plugins.css has no uppercase class (0 matches).
+- 2026-10-22, owner ("keep station icon logic as is"): the station icon is custom art placed by
+  script at the station's projected position, with the random rotation setting. `TRMNLMaps.dot`
+  cannot show an image.
+
+Owner's choices for the native pill, 2026-10-22: place name bold (`text--bold`), event text
+`title title--small text--bold`.
 
 ### Workarounds in the code today, not OK'd yet
 
