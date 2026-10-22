@@ -16,9 +16,9 @@
   <div class="iss-craft absolute z--1"><img class="iss-icon w--14 h--14" alt="ISS" src="" /></div>
 
   <div class="iss-pill absolute bottom--4 left--4 right--4 z--2 bg--white outline rounded--medium p--2 lg:p--3">
-   <div class="grid grid--cols-2 gap--base">
+   <div class="grid grid--cols-2 lg:portrait:grid--cols-1 gap--base">
     <div class="iss-namecell flex flex--col flex--center-x flex--center-y">
-      <span class="iss-loc title title--large lg:title--xlarge text--bold" data-value-fit="true">Passing by, wave 👋</span>
+      <span class="iss-loc title title--large lg:title--xlarge text--bold text--center" data-value-fit="true">Passing by, wave 👋</span>
     </div>
 
     <div class="iss-kpis grid grid--cols-3 gap--small">
@@ -46,7 +46,7 @@
     </div>
 
     <div class="iss-status-panel hidden flex flex--row flex--center-y">
-      <span class="iss-status-text title title--small text--bold">—</span>
+      <span class="iss-status-text title text--bold">—</span>
     </div>
    </div>
   </div>
@@ -182,6 +182,7 @@
     if (state.timestamp) el.ts.textContent = state.timestamp;
 
     el.loc.textContent = state.pill.locationText;
+    setNameFit(el.loc);
 
     const isEvent = state.pill.mode === 'EVENT';
     // bg--white and inverse are swapped, not combined: with both, a 1-bit
@@ -211,6 +212,25 @@
   // in portrait, which is 780px wide. Measured on screen, as v1.3 does, and a
   // width of 0 (not laid out yet) counts as not narrow.
   const narrow = () => { const w = ROOT.getBoundingClientRect().width; return w > 0 && w <= 520; };
+
+  // The place name may take two lines before it shrinks: Fit Value with a
+  // maximum height (data-value-fit-max-height) wraps the name and shrinks it
+  // only if two lines are not enough. That height is a number of pixels and
+  // the title's line height differs per screen, so it is written here: twice
+  // the title's own line height, read with any size the framework set before
+  // put aside. Returns whether it changed.
+  function setNameFit(name){
+    if (!name) return false;
+    const saved = [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings];
+    name.style.fontSize = name.style.lineHeight = name.style.fontWeight = name.style.fontVariationSettings = '';
+    const lh = parseFloat(getComputedStyle(name).lineHeight) || 0;
+    [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings] = saved;
+    if (!lh) return false;
+    const max = String(Math.round(2 * lh));
+    if (name.getAttribute('data-value-fit-max-height') === max) return false;
+    name.setAttribute('data-value-fit-max-height', max);
+    return true;
+  }
 
   // --- 5. MAP ---
   // TRMNL's own map (TRMNLMaps on MapLibre): the framework draws and dithers
@@ -284,7 +304,11 @@
   }
   const screenEl = ROOT.closest('.screen');
   if (screenEl && typeof MutationObserver !== 'undefined') {
-    new MutationObserver(() => updateView(state)).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => {
+      updateView(state);
+      // A new size class can change the title's line height: refit if so.
+      if (setNameFit($('.iss-loc')) && typeof window.terminalize === 'function') window.terminalize();
+    }).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
   }
 })();
 </script>

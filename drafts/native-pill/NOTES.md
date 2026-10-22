@@ -50,6 +50,17 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   check: fails when a pill covers more than half of the station icon (the quadrant's event pill
   hid it at `title` size).
 
+- 2026-10-22: X review. X portrait (full, half horizontal): KPI units cut, "Orbits today" wrapped,
+  long name tiny in half the width. The render check's KPI test looked for `.iss-kpi`, which the
+  draft does not have, so it checked nothing; now `.iss-kpis .item`, every text inside the item's
+  box, labels on one line: 8 failures on X portrait, as seen. Owner: the place name may take two
+  lines before it shrinks; event text one size up (`title`). Changes: `lg:portrait:grid--cols-1`
+  stacks name and KPIs on the X in portrait; the name has `data-value-fit-max-height`, written by
+  the script as twice the title's own line height (a number of pixels, which differs per screen),
+  and `text--center`; the compact OG-portrait `title--small` override is gone (wrapping replaces
+  it). Long name: full OG 30px on two lines (was 16), X portrait 35px; compact OG 21px two lines,
+  OG portrait 13px (was 8).
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran

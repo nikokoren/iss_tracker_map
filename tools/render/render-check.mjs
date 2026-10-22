@@ -274,8 +274,22 @@ async function runCase(c) {
         if (shown !== want) fails.push(`KPIs ${shown ? "shown" : "hidden"} at ${root.offsetWidth}px${ev && ev.has_event ? " with an event" : ""}`);
       }
       // The bigger text on the X must still fit: a KPI whose value or label overflows is cut.
-      for (const k of root.querySelectorAll(".iss-kpi")) {
-        if (k.offsetParent && k.scrollWidth > k.clientWidth + 1) fails.push(`KPI cut: "${k.textContent.trim().replace(/\s+/g, " ")}"`);
+      for (const k of root.querySelectorAll(".iss-kpi, .iss-kpis .item")) {
+        if (!k.offsetParent) continue;
+        // Every piece of text must end inside its KPI's box (the X portrait cut the units:
+        // "430.4 k"), and a label must not wrap onto a second line.
+        const kb = k.getBoundingClientRect();
+        const name = k.textContent.trim().replace(/\s+/g, " ");
+        let cut = k.scrollWidth > k.clientWidth + 1;
+        for (const t of k.querySelectorAll("span")) {
+          const tb = t.getBoundingClientRect();
+          if (tb.width && (tb.right > kb.right + 1 || tb.left < kb.left - 1)) cut = true;
+        }
+        if (cut) fails.push(`KPI cut: "${name}"`);
+        for (const l of k.querySelectorAll(".label")) {
+          const lh = parseFloat(getComputedStyle(l).lineHeight) || 0;
+          if (lh && l.getBoundingClientRect().height > 1.5 * lh * (kb.width / (k.offsetWidth || kb.width))) fails.push(`KPI label wraps: "${l.textContent.trim()}"`);
+        }
       }
       // Word spacing: every space in the place name, as a share of its font size. A text font's
       // space is about 0.25 em; the emoji font's, which spread the words apart, is far wider.

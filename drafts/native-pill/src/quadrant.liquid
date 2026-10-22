@@ -20,8 +20,8 @@
 
   <div class="iss-pill absolute bottom--4 left--2 right--2 z--2 bg--white outline rounded--medium p--2">
    <div class="flex flex--col flex--center-x">
-    <span class="iss-name title md:portrait:title--small lg:title--large lg:portrait:title--large text--bold" data-value-fit="true">Loading...</span>
-    <span class="iss-event title title--small text--bold hidden">—</span>
+    <span class="iss-name title lg:title--large text--bold text--center" data-value-fit="true">Loading...</span>
+    <span class="iss-event title text--bold hidden">—</span>
    </div>
   </div>
  </div>
@@ -85,10 +85,7 @@
   }
 
   // --- 4. THE VIEW ---
-  // Text and framework classes only. On the OG in portrait the name stays
-  // title--small: a long name in the wider title font did not fit even at Fit
-  // Value's 8px there; the lg: classes keep the X's size in both orientations.
-  // The place name is fitted by the
+  // Text and framework classes only. The place name is fitted by the
   // framework (data-value-fit). It is a centred item of a flex column, so its
   // box is as wide as its text: Fit Value compares the element's own box with
   // its parent's. An event replaces the name: its text wraps, the
@@ -118,7 +115,26 @@
     // Event text in capitals, as in v1.3: the framework has no uppercase
     // class, so the text itself is converted (owner's OK, 2026-10-21, CLAUDE.md).
     if (isEvent) el.event.textContent = state.pill.text.toUpperCase();
-    else el.name.textContent = state.pill.text;
+    else { el.name.textContent = state.pill.text; setNameFit(el.name); }
+  }
+
+  // The place name may take two lines before it shrinks: Fit Value with a
+  // maximum height (data-value-fit-max-height) wraps the name and shrinks it
+  // only if two lines are not enough. That height is a number of pixels and
+  // the title's line height differs per screen, so it is written here: twice
+  // the title's own line height, read with any size the framework set before
+  // put aside. Returns whether it changed.
+  function setNameFit(name){
+    if (!name) return false;
+    const saved = [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings];
+    name.style.fontSize = name.style.lineHeight = name.style.fontWeight = name.style.fontVariationSettings = '';
+    const lh = parseFloat(getComputedStyle(name).lineHeight) || 0;
+    [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings] = saved;
+    if (!lh) return false;
+    const max = String(Math.round(2 * lh));
+    if (name.getAttribute('data-value-fit-max-height') === max) return false;
+    name.setAttribute('data-value-fit-max-height', max);
+    return true;
   }
 
   // --- 5. MAP ---
@@ -175,6 +191,14 @@
   const state = computeState(RAW_DATA, CONFIG);
   updateView(state);
   whenReady(() => buildMap(state));
+
+  // A new size class can change the title's line height: refit if so.
+  const screenEl = ROOT.closest('.screen');
+  if (screenEl && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(() => {
+      if (setNameFit($('.iss-name')) && typeof window.terminalize === 'function') window.terminalize();
+    }).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+  }
 
   // When the plugin's size changes after load (TRMNL's preview lays it out
   // late), the framework is asked to run its pass again (window.terminalize,
