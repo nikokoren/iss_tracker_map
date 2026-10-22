@@ -46,7 +46,7 @@
     </div>
 
     <div class="iss-status-panel hidden flex flex--row flex--center-y">
-      <span class="iss-status-text title text--bold">—</span>
+      <span class="iss-status-text title title--small lg:title text--bold">—</span>
     </div>
    </div>
   </div>
@@ -213,14 +213,21 @@
   // width of 0 (not laid out yet) counts as not narrow.
   const narrow = () => { const w = ROOT.getBoundingClientRect().width; return w > 0 && w <= 520; };
 
-  // The place name may take two lines before it shrinks: Fit Value with a
-  // maximum height (data-value-fit-max-height) wraps the name and shrinks it
-  // only if two lines are not enough. That height is a number of pixels and
-  // the title's line height differs per screen, so it is written here: twice
-  // the title's own line height, read with any size the framework set before
-  // put aside. Returns whether it changed.
+  // On the X the place name may take two lines before it shrinks: Fit Value
+  // with a maximum height (data-value-fit-max-height) wraps the name and
+  // shrinks it only if two lines are not enough. That height is a number of
+  // pixels and the title's line height differs per screen, so it is written
+  // here: twice the title's own line height, read with any size the framework
+  // set before put aside. On the OG the attribute is left out: one line, as
+  // the owner approved it there. Returns whether it changed.
   function setNameFit(name){
     if (!name) return false;
+    const screen = ROOT.closest('.screen');
+    if (!(screen && screen.classList.contains('screen--lg'))) {
+      if (!name.hasAttribute('data-value-fit-max-height')) return false;
+      name.removeAttribute('data-value-fit-max-height');
+      return true;
+    }
     const saved = [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings];
     name.style.fontSize = name.style.lineHeight = name.style.fontWeight = name.style.fontVariationSettings = '';
     const lh = parseFloat(getComputedStyle(name).lineHeight) || 0;
