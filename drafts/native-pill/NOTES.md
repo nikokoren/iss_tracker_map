@@ -34,6 +34,11 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   event text `title title--small text--bold`, icon logic kept (OK in CLAUDE.md). Note from the
   docs: with the Classic font bundle `text--bold` does nothing on low-density screens (one weight).
 
+- 2026-10-22: owner: text one size larger across the board ("Manitoba seems super small on full
+  screen"). Name `title--large` / X `title--xlarge` (compact `title` / X `title--large`), KPI values
+  `value--xsmall` / X `value--small`, labels, units and timestamp `label` / X `label--large`, event
+  text `title`.
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran
