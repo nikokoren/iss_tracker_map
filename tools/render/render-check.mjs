@@ -214,6 +214,11 @@ async function runCase(c) {
     await p.waitForFunction(() => [...document.querySelectorAll(".leaflet-tile")].every((t) => t.complete), null, { timeout: 20000 }).catch(() => {});
     await p.waitForTimeout(500);
   }
+  // The views ask the framework to run its pass again (on a size change, once fonts have loaded),
+  // and a pass resets Fit Value's sizes before fitting: measure only once the last pass is done.
+  await p.waitForFunction(() => window.TRMNL_PLUGINS_READY === true, null, { timeout: 15000 }).catch(() => errors.push("TRMNL_PLUGINS_READY not true before measuring"));
+  await p.waitForTimeout(300);
+  await p.waitForFunction(() => window.TRMNL_PLUGINS_READY === true, null, { timeout: 15000 }).catch(() => errors.push("TRMNL_PLUGINS_READY not true before measuring"));
   if (process.env.PROBE) console.log(await p.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => { const b = e.getBoundingClientRect(), cs = getComputedStyle(e); return `   PROBE ${e.className} | ${Math.round(b.width)}x${Math.round(b.height)} | style="${e.getAttribute("style") || ""}" | font ${cs.fontSize} ${cs.fontFamily.slice(0, 30)} | color ${cs.color} bg ${cs.backgroundColor} | attrs ${[...e.attributes].map((a) => a.name).filter((n) => n.startsWith("data-")).join(",")}`; }).join("\n"), process.env.PROBE));
   if (process.env.DEBUG) console.log(await p.evaluate(() => [".screen", ".view", ".iss", ".iss-map", ".iss-map > *", ".maplibregl-canvas"]
     .flatMap((s) => [...document.querySelectorAll(s)].map((e) => { const b = e.getBoundingClientRect(); return `   ${s} "${e.className}" ${b.left | 0},${b.top | 0} ${b.width | 0}x${b.height | 0} client ${e.clientWidth}x${e.clientHeight}`; })).join("\n")));
