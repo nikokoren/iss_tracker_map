@@ -61,7 +61,7 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   it). Long name: full OG 30px on two lines (was 16), X portrait 35px; compact OG 21px two lines,
   OG portrait 13px (was 8).
 - 2026-10-22: owner: these changes are for the X only; the OG stays as approved. Event text
-  `title--small lg:title`; the two-line height is written only on `screen--lg` (removed on the
+  `title--small lg:title--base` (`lg:title` does not exist: 0 matches in plugins.css); the two-line height is written only on `screen--lg` (removed on the
   OG); the compact OG-portrait `md:portrait:title--small` override is back.
 
 ## Findings while drafting
