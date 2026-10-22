@@ -124,7 +124,7 @@ each pair are identical — change both together:
 | `half_vertical.liquid` | map + mini pill | yes |
 
 There is no `shared.liquid`: the Shared tab is not used, and each view carries
-its own styles and script, map included. Moving the common code there would
+its own markup and script, map included. Moving the common code there would
 remove the duplication, at the cost of a structural change to verify in the
 editor first.
 
@@ -144,29 +144,29 @@ came out nearly white on the TRMNL X.
   a map about as tall as the world, MapLibre moves the centre toward the
   equator rather than show past the poles.
 - The framework writes the OpenStreetMap credit into the map's bottom-right
-  corner. Where the pill would cover it (half horizontal and the compact
-  views), the script moves the pill up just enough to clear it.
+  corner. The pill sits `bottom--4` (16 px) above the map's edge, clear of it.
 - If MapLibre or `TRMNLMaps` is missing, the map area stays empty and the
   pill still shows.
 
-## Text sizes on the TRMNL X
+## The pill
 
-The pill's text is one step larger on the X: place name up to 34 px (28 on
-the OG), KPI values 18 px (14), labels 13 px (11), timestamp 13 px (11), the
-compact views' text up to 22 px (18). The sizes are CSS variables on `.iss`,
-overridden under `.screen--lg`, the class the framework puts on the X's
-screen and keys its own `lg:` utilities on. The framework's `lg:` classes
-only apply to its own typography classes, and the pill has its own sizes,
-which the script reads back as the largest size it fits text to.
+Since v1.3 the pill is built from TRMNL Framework 3.4 elements only: no
+`<style>` block, no own fonts or sizes (design rule in `CLAUDE.md`; how it was
+built, and what the framework forced, in `docs/native-pill.md`).
 
-The place name is fitted by the framework (`data-value-fit="true"`, Framework
-3.4 Fit Value): during TRMNL's render it shrinks the name until it fits on one
-line, down to 8 px, instead of cutting it with an ellipsis. In the compact
-views the name sits in an inline span, because the framework measures the
-element's own box and the text box is always as wide as the pill. Event text
-wraps, so it keeps the script's own fitting.
-
-The place name's font list starts with the text fonts and ends with the emoji
-fonts. The other way round, the spaces came from Noto Color Emoji, whose space
-is about five times as wide (1.25 em against 0.22 em, measured by the render
-check), which spread the words apart.
+- Box: `absolute bottom--4 … bg--white outline rounded--medium`, with
+  `inverse` instead of `bg--white` for an ISS event.
+- Full and half horizontal: a two-column `grid`, name | KPIs (`item` with
+  its meta bar, `value`, `label`); on the X in portrait it stacks
+  (`lg:portrait:grid--cols-1`). At 520 px wide or narrower (the OG in
+  portrait) the KPIs are left out and the name spans both columns.
+- Sizes: name `title--large` (X `title--xlarge`), compact views `title`
+  (X `title--large`, OG portrait `title--small`); KPI values
+  `value--xsmall` (X `value--small`); labels `label--small` (X
+  `label--large`); event text `title--small` (X `title--base`), in capitals.
+- The place name is fitted by Fit Value (`data-value-fit`): one line on the
+  OG, down to 8 px; on the X up to two lines before it shrinks (the script
+  writes `data-value-fit-max-height` as two of the title's lines).
+- The script only sets text and toggles framework classes, plus three
+  things the owner OK'd: the station icon's placement and rotation, event
+  text in capitals, and the 520 px rule.

@@ -1,109 +1,38 @@
 {%- comment -%}
   half_vertical.liquid — ISS Tracker Map (compact view)
 
-  This is the view a 2x2 / 4-up mashup renders, so it is the one that reached
-  into a neighbouring plugin.
+  Built from TRMNL Framework 3.4 classes only: no <style> block, no own fonts
+  or sizes (CLAUDE.md, design rule). The script sets text, toggles framework
+  classes (hidden, inverse, bg--white), builds the map, and places the
+  station icon. The compact views show the place name or the event, never the
+  KPIs.
 
-  SCOPING CONTRACT
-  ----------------
-  A mashup renders every plugin into one document. There is no iframe and no
-  shadow root, so this style block is a document-wide stylesheet and this
-  script can see every other plugin's DOM.
-
-  Note that the framework ships entirely inside @layer (tn--normalize,
-  tn--elements, tn--components, tn--base, tn--device-overrides, tn--utilities)
-  while a plugin's <style> block is unlayered. Unlayered CSS beats layered CSS
-  regardless of specificity, so a bare `*` here outranks even the framework's
-  own multi-class rules. Scope is the only thing holding these styles in.
+  SCOPING CONTRACT: every DOM lookup goes through ROOT, this instance's own
+  subtree, never through document. Run `npm run lint` before publishing.
 
   Identical in content to quadrant.liquid. Change both together.
 {%- endcomment -%}
 
-<style>
-  /* --- CSS: COMPACT LAYOUT --- */
-  .iss{
-    --iss-border:#000;
-    --iss-text:18px; --iss-event:16px; --iss-event-min:13px; --iss-pill-min:40px; --iss-pad:8px 10px;
-    position:relative; height:100%; width:100%; overflow:hidden;
-  }
-
-  /* The reset was `*`, which set margin:0 and padding:0 on every element in
-     the mashup. Because plugin styles are unlayered it outranked the
-     framework's own .view--quadrant .layout rule, so a neighbouring plugin
-     lost its 10px padding and its title bar's 0 10px, jamming content against
-     the edges. Confined here it only resets this plugin's own elements. */
-  .iss, .iss *{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; box-sizing:border-box;}
-
-  /* One step larger on the TRMNL X. .screen--lg is the class the framework
-     puts on the X's screen and keys its own lg: utilities on; the pill has its
-     own sizes, so it is set here. The script reads --iss-text and --iss-event
-     as the largest sizes it fits the pill text to. */
-  .screen--lg .iss{
-    --iss-text:22px; --iss-event:19px; --iss-event-min:16px; --iss-pill-min:48px; --iss-pad:10px 12px;
-  }
-
-  /* Map. The framework's .map class sizes the container; this keeps the size
-     the Leaflet map had. */
-  .iss .iss-map{height:100%; width:100%}
-
-  /* Centered Icon */
-  .iss .iss-craft{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:900;}
-  .iss .iss-craft img{width:48px; height:48px; filter:brightness(0)}
-
-  /* The "Mini Pill" at bottom */
-  .iss .iss-mini-pill {
-    position:absolute; left:8px; right:8px; bottom:8px; z-index:1000;
-    background:#fff; border:1.5px solid var(--iss-border); border-radius:12px;
-    padding:var(--iss-pad);
-    display:flex; align-items:center; justify-content:center;
-    min-height: var(--iss-pill-min);
-    overflow:hidden;
-    transition: background-color 0.2s, color 0.2s;
-  }
-
-  /* Text Styling. The framework fits the place name to this box but allows
-     itself a pixel or two over, so the text may run into the pill's padding;
-     the pill, not this box, clips. */
-  .iss .iss-text {
-    font-weight:800; font-size:var(--iss-text); line-height:1.1;
-    text-align:center; white-space:nowrap;
-    width: 100%; color: #000;
-  }
-
-  /* --- EVENT MODE: INVERTED --- */
-  .iss .iss-mini-pill--event {
-    background: #000; border-color: #000;
-    align-items: center; justify-content: flex-start;
-  }
-
-  /* Wrap text when event is active */
-  .iss .iss-mini-pill--event .iss-text {
-    color: #fff;
-    white-space: normal; /* Allow wrapping */
-    text-align: left;
-    font-size: var(--iss-event-min); /* Smaller for detailed text */
-    text-transform: uppercase;
-    line-height: 1.1;
-  }
-</style>
-
 <div class="layout iss">
+ <div class="relative w--full h--full">
   <div class="iss-map map"></div>
-  <div class="iss-craft"><img class="iss-icon" alt="ISS" src="" /></div>
+  <div class="iss-craft absolute z--1"><img class="iss-icon w--12 h--12" alt="ISS" src="" /></div>
 
-  <div class="iss-mini-pill">
-    <div class="iss-text"><span class="iss-fit" data-value-fit="true">Loading...</span></div>
+  <div class="iss-pill absolute bottom--4 left--2 right--2 z--2 bg--white outline rounded--medium p--2">
+   <div class="flex flex--col flex--center-x">
+    <span class="iss-name title md:portrait:title--small lg:title--large lg:portrait:title--large text--bold text--center" data-value-fit="true">Loading...</span>
+    <span class="iss-event title title--small lg:title--base text--bold hidden">—</span>
+   </div>
   </div>
+ </div>
 </div>
-
 <link rel="stylesheet" href="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.css">
 <script src="https://trmnl.com/js/maplibre-gl/5.24.0/maplibre-gl.js"></script>
 <script>
 (() => {
   // --- 0. THIS INSTANCE'S ROOT ---
-  // Every lookup goes through ROOT. document.getElementById would find the
-  // first #map in the mashup, which is another plugin's or this plugin's other
-  // instance, never reliably this one.
+  // Every lookup goes through ROOT. In a mashup document.querySelector
+  // returns whichever plugin comes first in the DOM.
   const SELF = document.currentScript;
   const ROOT =
     (SELF && SELF.closest('.iss')) ||
@@ -155,88 +84,76 @@
     };
   }
 
-  // --- 4. THE VIEW (Compact Specific) ---
+  // --- 4. THE VIEW ---
+  // Text and framework classes only. On the OG in portrait the name stays
+  // title--small: a long name in the wider title font did not fit even at Fit
+  // Value's 8px there; the lg: classes keep the X's size in both orientations.
+  // The place name is fitted by the
+  // framework (data-value-fit). It is a centred item of a flex column, so its
+  // box is as wide as its text: Fit Value compares the element's own box with
+  // its parent's. An event replaces the name: its text wraps, the
+  // pill grows with it and is inverted (bg--white and inverse swapped, not
+  // combined: with both, a 1-bit screen drew black text on the black pill).
   function updateView(state) {
     const el = {
-      pill: $('.iss-mini-pill'),
-      text: $('.iss-text'),
-      fit: $('.iss-fit'),
+      pill: $('.iss-pill'),
+      name: $('.iss-name'),
+      event: $('.iss-event'),
       icon: $('.iss-icon')
     };
 
     if (!state || !state.isValid) {
-      el.fit.textContent = "—";
+      el.name.textContent = "—";
       return;
     }
 
-    // A. Icon Update
     if (el.icon.src !== state.icon.url) el.icon.src = state.icon.url;
-    el.icon.parentElement.style.transform = state.icon.rotation
-      ? `translate(-50%, -50%) rotate(${state.icon.rotation}deg)`
-      : `translate(-50%, -50%)`;
+    el.icon.style.transform = state.icon.rotation ? `rotate(${state.icon.rotation}deg)` : '';
 
-    // B. Pill Logic (The big difference from Full Screen)
-    // The place name is fitted by the framework (data-value-fit): during
-    // TRMNL's render it shrinks the name until it fits the pill on one line,
-    // down to 8px, and fits again when the screen changes. It measures the
-    // element's own box, so the name sits in an inline span: .iss-text is as
-    // wide as the pill whatever its text. Event text wraps instead, so it
-    // keeps this script's fitting and the framework leaves it alone.
-    el.fit.textContent = state.pill.text;
+    const isEvent = state.pill.mode === 'EVENT';
+    el.pill.classList.toggle('inverse', isEvent);
+    el.pill.classList.toggle('bg--white', !isEvent);
+    el.name.classList.toggle('hidden', isEvent);
+    el.event.classList.toggle('hidden', !isEvent);
+    // Event text in capitals, as in v1.3: the framework has no uppercase
+    // class, so the text itself is converted (owner's OK, 2026-10-21, CLAUDE.md).
+    if (isEvent) el.event.textContent = state.pill.text.toUpperCase();
+    else { el.name.textContent = state.pill.text; setNameFit(el.name); }
+  }
 
-    if (state.pill.mode === 'EVENT') {
-      el.fit.removeAttribute('data-value-fit');
-      el.pill.classList.add('iss-mini-pill--event');
-      fitTextToContainer(el.text, el.pill, 10, cssPx('--iss-event', 16), true);
-    } else {
-      el.fit.setAttribute('data-value-fit', 'true');
-      el.pill.classList.remove('iss-mini-pill--event');
+  // On the X the place name may take two lines before it shrinks: Fit Value
+  // with a maximum height (data-value-fit-max-height) wraps the name and
+  // shrinks it only if two lines are not enough. That height is a number of
+  // pixels and the title's line height differs per screen, so it is written
+  // here: twice the title's own line height, read with any size the framework
+  // set before put aside. On the OG the attribute is left out: one line, as
+  // the owner approved it there. Returns whether it changed.
+  function setNameFit(name){
+    if (!name) return false;
+    const screen = ROOT.closest('.screen');
+    if (!(screen && screen.classList.contains('screen--lg'))) {
+      if (!name.hasAttribute('data-value-fit-max-height')) return false;
+      name.removeAttribute('data-value-fit-max-height');
+      return true;
     }
+    const saved = [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings];
+    name.style.fontSize = name.style.lineHeight = name.style.fontWeight = name.style.fontVariationSettings = '';
+    const lh = parseFloat(getComputedStyle(name).lineHeight) || 0;
+    [name.style.fontSize, name.style.lineHeight, name.style.fontWeight, name.style.fontVariationSettings] = saved;
+    if (!lh) return false;
+    const max = String(Math.round(2 * lh));
+    if (name.getAttribute('data-value-fit-max-height') === max) return false;
+    name.setAttribute('data-value-fit-max-height', max);
+    return true;
   }
 
-  // --- 5. HELPERS ---
-  const cssPx = (name, fallback) => parseFloat(getComputedStyle(ROOT).getPropertyValue(name)) || fallback;
-  function fitTextToContainer(node, wrap, minPx, maxPx, allowWrap){
-    if(!node || !wrap) return;
-    node.style.fontSize = maxPx + 'px';
-    let lo=minPx, hi=maxPx, best=minPx;
-    while (lo <= hi){
-      const mid = (lo+hi)>>1;
-      node.style.fontSize = mid + 'px';
-      let fits = false;
-      if (allowWrap) {
-         fits = node.scrollHeight <= (wrap.clientHeight + 4);
-      } else {
-         fits = node.scrollWidth <= (wrap.clientWidth - 4);
-      }
-      if (fits){ best = mid; lo = mid + 1; } else { hi = mid - 1; }
-    }
-    node.style.fontSize = best + 'px';
-  }
-
-  // --- 6. BOOT ---
-  // The map is TRMNL's own (TRMNLMaps on MapLibre), so the framework draws and
-  // dithers it for each panel's bit depth and writes the OpenStreetMap credit
-  // into it. The Leaflet map's CARTO tiles came out nearly white on the X.
-  // watch() is handed the element, not an id string, and rebuilds the map when
-  // the device, scale or mode changes.
-  //
-  // Zoom 1 shows what Leaflet's zoom 2 did: MapLibre's tiles are 512px,
-  // Leaflet's were 256px. It must be a whole number: the framework dithers the
-  // map only at an integer zoom.
-  // The framework writes the OpenStreetMap credit into the map's bottom-right
-  // corner. It has to stay readable, so where the pill would cover it, the
-  // pill moves up just enough to clear it (half horizontal and the compact
-  // views; the full view has room).
-  function clearCredit(el, pill){
-    const credit = el.querySelector('.map__attribution');
-    if (!credit || !pill) return;
-    const c = credit.getBoundingClientRect(), p = pill.getBoundingClientRect();
-    const k = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
-    const overlap = (p.bottom - c.top) / k + 3;
-    if (overlap > 0) pill.style.bottom = (parseFloat(getComputedStyle(pill).bottom) + overlap) + 'px';
-  }
-
+  // --- 5. MAP ---
+  // TRMNL's own map (TRMNLMaps on MapLibre): the framework draws and dithers
+  // it for each panel's bit depth and writes the OpenStreetMap credit into it.
+  // watch() is given the element, not an id, so two instances in one mashup
+  // don't collide; it rebuilds the map when the device, scale or mode changes.
+  // Zoom 1 shows what Leaflet's zoom 2 did (512px tiles against 256px); whole
+  // numbers only, as the framework dithers only at an integer zoom.
   // The map waits until MapLibre and the framework are loaded and the map has
   // a size, checking every 50 ms for up to 10 s, as Downstream does. A host
   // can run this script before either has loaded (markup inserted with its
@@ -263,34 +180,48 @@
       opts.renderWorldCopies = true;
       const map = new maplibregl.Map(opts);
       el.__issMap = map; // read by tools/render/render-check.mjs
-      // The icon goes where the map draws the station, which is not always
-      // the centre: MapLibre shows nothing beyond the poles, so on a map about
-      // as tall as the world it moves the centre toward the equator.
+      // The icon goes where the map draws the station, centred on it. Not the
+      // map's centre: MapLibre shows nothing beyond the poles, so on a map
+      // about as tall as the world it moves the centre toward the equator.
+      // (Script placement: the framework has no way to put custom art on a
+      // map. OK'd by the owner 2026-10-22, CLAUDE.md.)
       const craft = $('.iss-craft');
       const placeCraft = () => {
         const p = map.project([state.map.lon, state.map.lat]);
-        craft.style.left = (el.offsetLeft + p.x) + 'px';
-        craft.style.top = (el.offsetTop + p.y) + 'px';
+        craft.style.left = (el.offsetLeft + p.x - craft.offsetWidth / 2) + 'px';
+        craft.style.top = (el.offsetTop + p.y - craft.offsetHeight / 2) + 'px';
       };
       map.on('load', placeCraft);
       map.on('moveend', placeCraft);
-      map.on('load', () => clearCredit(el, $('.iss-mini-pill')));
       return map;
     });
-    clearCredit(el, $('.iss-mini-pill'));
   }
 
+  // --- 6. BOOT ---
   const state = computeState(RAW_DATA, CONFIG);
   updateView(state);
   whenReady(() => buildMap(state));
 
-  // Fit the text again when the screen's classes change: TRMNL's preview sets
-  // the size classes (screen--lg on the X) after load, which changes the
-  // pill's sizes after this script has fitted the event text. The place name
-  // needs no help; the framework fits it again itself.
+  // A new size class can change the title's line height: refit if so.
   const screenEl = ROOT.closest('.screen');
   if (screenEl && typeof MutationObserver !== 'undefined') {
-    new MutationObserver(() => updateView(state)).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => {
+      if (setNameFit($('.iss-name')) && typeof window.terminalize === 'function') window.terminalize();
+    }).observe(screenEl, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // When the plugin's size changes after load (TRMNL's preview lays it out
+  // late), the framework is asked to run its pass again (window.terminalize,
+  // its public API), so Fit Value fits the place name to the real width; the
+  // framework itself re-runs only on screen class changes.
+  if (typeof ResizeObserver !== 'undefined') {
+    let w = -1, h = -1;
+    new ResizeObserver(() => {
+      if (ROOT.offsetWidth === w && ROOT.offsetHeight === h) return;
+      const first = w < 0;
+      w = ROOT.offsetWidth; h = ROOT.offsetHeight;
+      if (!first && typeof window.terminalize === 'function') window.terminalize();
+    }).observe(ROOT);
   }
 })();
 </script>

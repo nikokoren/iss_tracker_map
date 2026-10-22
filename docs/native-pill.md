@@ -1,8 +1,8 @@
 # Native pill rework: working notes
 
-To do item 1 in `CLAUDE.md`. The draft views live in `drafts/native-pill/src/`
-and render with `SRC=../../drafts/native-pill/src npm run check` from
-`tools/render`. `src/` stays v1.3 until the owner has seen a mockup and said OK.
+How the native pill was built (2026-10-21 to 22). The drafts lived in
+`drafts/native-pill/src/`; on the owner's OK ("looks good. merge", 2026-10-22) they replaced
+`src/`, and the drafts folder was removed.
 
 ## Status
 

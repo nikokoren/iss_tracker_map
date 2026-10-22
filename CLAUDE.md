@@ -21,7 +21,7 @@ Framework docs: https://trmnl.com/framework/docs/3.4 (Markdown at
 
 - 2026-10-21, owner ("keep that rule"): the full and half horizontal views hide the KPIs when the
   plugin is 520px wide or narrower (the OG in portrait), by script. No native equivalent: see
-  `drafts/native-pill/NOTES.md`.
+  `docs/native-pill.md`.
 - 2026-10-21, owner ("OK"): the ISS event text is shown in capitals, as in v1.3, by converting the
   text in the script (`toUpperCase()`). plugins.css has no uppercase class (0 matches).
 - 2026-10-22, owner ("keep station icon logic as is"): the station icon is custom art placed by
@@ -31,37 +31,20 @@ Framework docs: https://trmnl.com/framework/docs/3.4 (Markdown at
 Owner's choices for the native pill, 2026-10-22: place name bold (`text--bold`), event text
 `title title--small text--bold`.
 
-### Workarounds in the code today, not OK'd yet
+- 2026-10-22, owner ("looks good. merge"): the native pill replaces the v1.3 custom CSS in
+  `src/`. The place name's two-line Fit Value height is written by the script on the X (a pixel
+  number that differs per screen); everything else is framework classes.
 
-Found 2026-10-18. Each needs a native replacement or the owner's OK.
-
-| Workaround | Where | Native candidate (not verified yet) |
-| --- | --- | --- |
-| The whole pill is own CSS: border, radius, padding, row height, KPI bars, colours, inverted event state | all four views | framework layout, item, value, label, title, inverse utilities |
-| Own font stack (`system-ui`…) instead of the framework's fonts | all four views | the framework's own typography; also removes the emoji-space fix below |
-| Own text sizes in px, one step larger under `.screen--lg` via CSS variables (added 2026-10-17) | all four views | `value--*`, `label--*`, `title--*` with `lg:` variants |
-| Emoji fonts listed last to fix wide spaces (added 2026-10-17) | full, half horizontal | goes away with the framework's fonts |
-| Event text fitted by the plugin's own script, re-run on screen class changes (2026-10-17) | all four views | Fit Value with `data-value-fit-max-height` (multi-line), or Clamp |
-| Pill moved up by script to clear the map credit (2026-10-17) | all four views | position utilities with `lg:` variants, as Downstream's text box does (`bottom--3 lg:bottom--6`) |
-| Station icon placed by script at the projected position (2026-10-17) | all four views | needed while the icon is custom art: `TRMNLMaps.dot` cannot show an image; ask |
-| Timestamp: own absolute position and size | full, half horizontal | position utilities, `label` |
-
-Native already: the map (`TRMNLMaps`, `outline` preset), the OSM credit, the
-place name's fitting (Fit Value).
+Since 2026-10-22 there is no custom CSS in `src/`; the earlier list of workarounds (own pill CSS,
+own fonts and sizes, emoji font order, own event fitting, script-moved pill, timestamp) is
+resolved. History in `docs/native-pill.md`.
 
 ## To do
 
-1. **Rework the pill to be fully native** (owner, 2026-10-18), per the table
-   above. A first attempt exists: commit 6cf0f30 on branch `framework-maps`
-   ("Rebuild the chrome on framework utilities", 2026-09-16), taken off main in
-   2d6af91 so a bug fix would not ship with a cosmetic change. Read it before
-   starting; it predates Framework 3.4 and this session's map work. Mock it up
-   and get the owner's OK on the look before it replaces the published one.
-2. Merge `claude/stoic-babbage-z5870f` (v1.3: native map, X text sizes, Fit
-   Value, events checked) once the owner has pasted it into the published
-   recipe.
-3. Watch a real ISS event on the device; the render check covers events only
-   with payloads built from real records.
+1. Paste the four views and the settings into the published recipe as v1.3 (owner). Merged to
+   main 2026-10-22: native map, native pill, Fit Value, events checked.
+2. Watch a real ISS event on the device; the render check covers events only
+   with payloads built from real records. Not confirmed on a device yet.
 
 ## Checks before committing
 
