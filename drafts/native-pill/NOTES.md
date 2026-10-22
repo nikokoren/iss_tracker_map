@@ -39,6 +39,12 @@ and render with `SRC=../../drafts/native-pill/src npm run check` from
   `value--xsmall` / X `value--small`, labels, units and timestamp `label` / X `label--large`, event
   text `title`.
 
+  First check after the bump: 136/144. Full view, OG portrait: the long name shrank to 8px in the
+  left half while the KPIs were hidden: the name cell now takes `col--span-2` then (20px). Compact,
+  OG portrait: `title` switches to the wider TRMNL21 font and the long name did not fit even at
+  8px: `md:portrait:title--small lg:title--large lg:portrait:title--large` (the lg: rules come
+  later in plugins.css, so the X keeps its size); it now fits at 8px.
+
 ## Findings while drafting
 
 - `grid` sets `width:100%`, so on the absolutely placed pill it overrode `right--4` and the pill ran

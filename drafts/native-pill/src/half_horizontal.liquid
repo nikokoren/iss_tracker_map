@@ -17,7 +17,7 @@
 
   <div class="iss-pill absolute bottom--4 left--4 right--4 z--2 bg--white outline rounded--medium p--2 lg:p--3">
    <div class="grid grid--cols-2 gap--base">
-    <div class="flex flex--col flex--left flex--center-y">
+    <div class="iss-namecell flex flex--col flex--left flex--center-y">
       <span class="iss-loc title title--large lg:title--xlarge text--bold" data-value-fit="true">Passing by, wave 👋</span>
     </div>
 
@@ -156,6 +156,7 @@
   function updateView(state) {
     const el = {
       loc: $('.iss-loc'),
+      namecell: $('.iss-namecell'),
       kpis: $('.iss-kpis'),
       statusPanel: $('.iss-status-panel'),
       statusText: $('.iss-status-text'),
@@ -188,6 +189,8 @@
     el.pill.classList.toggle('inverse', isEvent);
     el.pill.classList.toggle('bg--white', !isEvent);
     el.kpis.classList.toggle('hidden', isEvent || narrow());
+    // With the KPIs left out (narrow, no event), the name takes both columns.
+    el.namecell.classList.toggle('col--span-2', !isEvent && narrow());
     el.statusPanel.classList.toggle('hidden', !isEvent);
     if (isEvent) {
       // In capitals, as in v1.3: the framework has no uppercase class, so the
