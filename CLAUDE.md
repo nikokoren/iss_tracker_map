@@ -45,6 +45,25 @@ resolved. History in `docs/native-pill.md`.
    main 2026-10-22: native map, native pill, Fit Value, events checked.
 2. Watch a real ISS event on the device; the render check covers events only
    with payloads built from real records. Not confirmed on a device yet.
+3. **Bring the orbit path into the repo** (owner, 2026-11-07: built with Codex the week before).
+   Not on any branch here (checked main, framework-maps, claude/stoic-babbage-z5870f): it lives in
+   the TRMNL editor or the Worker. Pasting `src/` into the recipe would overwrite it, so merge it
+   in first.
+4. **Next event countdown** (owner, 2026-11-07): in quiet times show the next docking, undocking,
+   launch or spacewalk ("Cargo Dragon docks in 2 days"). `scripts/iss-events.mjs` in
+   nikokoren/mission_control already reads upcoming LL2 records; the Worker would pass the next one
+   on. Not started.
+5. **Day and night on the map, with city lights** (owner, 2026-11-07). Checked against plugins.js
+   v3.4.6 and the map docs, 2026-11-07:
+   - City lights: native. `TRMNLMaps.dot(map, lngLat, { hollow: true })` on the night side only
+     (sun position decides). City list: Natural Earth populated places (public domain), top ~50.
+   - Night shading: no helper for areas (`route` and `dot` only). Documented way: an own MapLibre
+     fill layer added with `TRMNLMaps.merge()`, painted with a framework fill (`TRMNLPaint` slot
+     through `toMapLibre`: a dither tile on 1- and 2-bit, a solid on 4-bit); the terminator outline
+     computed by the script. Counts as a workaround: needs the owner's OK before it is built.
+   - Risk to check in a mockup: on 1-bit, land and sea are already dither tiles; a night layer
+     over them may hide the coastlines.
+   Not started.
 
 ## Checks before committing
 
