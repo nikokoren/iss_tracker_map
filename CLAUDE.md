@@ -64,6 +64,18 @@ resolved. History in `docs/native-pill.md`.
    - Risk to check in a mockup: on 1-bit, land and sea are already dither tiles; a night layer
      over them may hide the coastlines.
    Not started.
+6. **Visible pass schedule** (owner, 2026-11-07): when the ISS can be seen with the naked eye from
+   the viewer's location ("Tonight 19:42–19:46, from the west, very bright"). Agreed approach:
+   - A schedule, not an alert: the device refreshes every 5 to 15 min or more (worst case about
+     20 min late), so show clock times, never "in 12 min", which goes stale.
+   - Shown hours ahead (e.g. from the afternoon for an evening pass), so it is on screen through
+     many refreshes before it happens; dropped or replaced by the next pass once its end time is
+     past.
+   - The Worker computes the next few visible passes (dark at the viewer, ISS in sunlight) from
+     the public orbit data and sends start, end, direction and brightness; the view picks the
+     current one and formats it in the viewer's time zone and time format.
+   - Needs a location setting (city or coordinates). No notifications: a TRMNL cannot ping.
+   Not started.
 
 ## Checks before committing
 
